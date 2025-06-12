@@ -459,54 +459,49 @@ const Dashboard = () => {
   const [sourceBalances, setSourceBalances] = useState({});
 
   // Load all data from localStorage and set up listeners
-  useEffect(() => {
-    const loadAllData = () => {
-      const savedExpenses = localStorage.getItem('expenses');
-      const savedSources = localStorage.getItem('expenseSources');
-      const savedSourceBalances = localStorage.getItem('sourceBalances');
+useEffect(() => {
+  const loadAllData = () => {
+    const savedExpenses = localStorage.getItem('expenses');
+    const savedSources = localStorage.getItem('expenseSources');
+    const savedSourceBalances = localStorage.getItem('sourceBalances');
 
-      if (savedExpenses) {
-        setExpenses(JSON.parse(savedExpenses));
-      } else {
-        // Sample data for demo if no expenses exist
-        setExpenses([
-          { id: 1, amount: 399.99, vendor: 'Cafe Coffee Day', date: '2025-06-11', category: 'Food & Drink', description: 'Coffee and snacks', sourceId: 'cash_wallet_001' },
-          { id: 2, amount: 1500.00, vendor: 'Indian Oil', date: '2025-06-10', category: 'Transportation', description: 'Petrol fill-up', sourceId: 'upi_primary_001' },
-          { id: 3, amount: 2500.00, vendor: 'Big Bazaar', date: '2025-06-09', category: 'Shopping', description: 'Groceries', sourceId: 'cash_wallet_001' }
-        ]);
-      }
+    if (savedExpenses) {
+      setExpenses(JSON.parse(savedExpenses));
+    }
+    // Sample data block removed - app will start with empty expenses array
 
-      if (savedSources) {
-          setSources(JSON.parse(savedSources));
-      }
+    if (savedSources) {
+        setSources(JSON.parse(savedSources));
+    }
 
-      if (savedSourceBalances) {
-          setSourceBalances(JSON.parse(savedSourceBalances));
-      }
-    };
+    if (savedSourceBalances) {
+        setSourceBalances(JSON.parse(savedSourceBalances));
+    }
+  };
 
-    loadAllData();
+  loadAllData();
 
-    const handleExpensesUpdate = () => {
-        loadAllData();
-    };
+  const handleExpensesUpdate = () => {
+      loadAllData();
+  };
 
-    const handleStorageChange = (event) => {
-      if (event.key === 'expenses' || event.key === 'expenseSources' || event.key === 'sourceBalances') {
-        loadAllData();
-      }
-    };
+  const handleStorageChange = (event) => {
+    if (event.key === 'expenses' || event.key === 'expenseSources' || event.key === 'sourceBalances') {
+      loadAllData();
+    }
+  };
 
-    window.addEventListener('expensesUpdated', handleExpensesUpdate);
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('focus', loadAllData);
+  window.addEventListener('expensesUpdated', handleExpensesUpdate);
+  window.addEventListener('storage', handleStorageChange);
+  window.addEventListener('focus', loadAllData);
 
-    return () => {
-      window.removeEventListener('expensesUpdated', handleExpensesUpdate);
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('focus', loadAllData);
-    };
-  }, []);
+  return () => {
+    window.removeEventListener('expensesUpdated', handleExpensesUpdate);
+    window.removeEventListener('storage', handleStorageChange);
+    window.removeEventListener('focus', loadAllData);
+  };
+}, [])
+
 
   return <ExpenseDashboard expenses={expenses} sources={sources} sourceBalances={sourceBalances} />;
 };
