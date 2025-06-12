@@ -1,7 +1,8 @@
 // src/pages/Authentication.js
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext'; // ✅ Fixed import path
+import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext'; // ✅ Add this import
 import { DollarSign, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 const Authentication = () => {
@@ -12,6 +13,7 @@ const Authentication = () => {
   const [error, setError] = useState('');
   
   const { login, user } = useAuth();
+  const { isDarkMode } = useTheme(); // ✅ Add theme hook
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -40,34 +42,66 @@ const Authentication = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className={`min-h-screen flex items-center justify-center p-4 ${
+      isDarkMode 
+        ? 'bg-gradient-to-b from-slate-900 to-slate-800' 
+        : 'bg-gradient-to-b from-blue-50 to-indigo-100'
+    }`}>
       <div className="max-w-md w-full">
-        <div className="bg-white rounded-xl shadow-lg p-8">
+        <div className={`rounded-xl shadow-lg p-8 ${
+          isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white'
+        }`}>
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              <div className="p-3 bg-blue-100 rounded-full">
-                <DollarSign className="h-8 w-8 text-blue-600" />
+              <div className={`p-3 rounded-full ${
+                isDarkMode ? 'bg-blue-900/50' : 'bg-blue-100'
+              }`}>
+                <DollarSign className={`h-8 w-8 ${
+                  isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                }`} />
               </div>
             </div>
-            <h2 className="text-2xl font-bold text-gray-800">Welcome Back</h2>
-            <p className="text-gray-600 mt-2">Sign in to your expense tracker</p>
+            <h2 className={`text-2xl font-bold ${
+              isDarkMode ? 'text-slate-100' : 'text-gray-800'
+            }`}>Welcome Back</h2>
+            <p className={`mt-2 ${
+              isDarkMode ? 'text-slate-400' : 'text-gray-600'
+            }`}>Sign in to your expense tracker</p>
           </div>
 
-          <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <p className="text-sm text-blue-700 font-medium mb-2">Demo Credentials:</p>
-            <p className="text-xs text-blue-600">Email: user@example.com</p>
-            <p className="text-xs text-blue-600">Password: password</p>
+          <div className={`mb-6 p-4 rounded-lg border ${
+            isDarkMode 
+              ? 'bg-blue-900/20 border-blue-800/50' 
+              : 'bg-blue-50 border-blue-200'
+          }`}>
+            <p className={`text-sm font-medium mb-2 ${
+              isDarkMode ? 'text-blue-300' : 'text-blue-700'
+            }`}>Demo Credentials:</p>
+            <p className={`text-xs ${
+              isDarkMode ? 'text-blue-400' : 'text-blue-600'
+            }`}>Email: user@example.com</p>
+            <p className={`text-xs ${
+              isDarkMode ? 'text-blue-400' : 'text-blue-600'
+            }`}>Password: password</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-600">{error}</p>
+              <div className={`p-4 rounded-lg border ${
+                isDarkMode 
+                  ? 'bg-red-900/20 border-red-800/50' 
+                  : 'bg-red-50 border-red-200'
+              }`}>
+                <p className={`text-sm ${
+                  isDarkMode ? 'text-red-300' : 'text-red-600'
+                }`}>{error}</p>
               </div>
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="email" className={`block text-sm font-medium mb-2 ${
+                isDarkMode ? 'text-slate-300' : 'text-gray-700'
+              }`}>
                 Email Address
               </label>
               <input
@@ -76,13 +110,19 @@ const Authentication = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  isDarkMode 
+                    ? 'bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400' 
+                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                }`}
                 placeholder="Enter your email"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password" className={`block text-sm font-medium mb-2 ${
+                isDarkMode ? 'text-slate-300' : 'text-gray-700'
+              }`}>
                 Password
               </label>
               <div className="relative">
@@ -92,13 +132,19 @@ const Authentication = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12 ${
+                    isDarkMode 
+                      ? 'bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400' 
+                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                  }`}
                   placeholder="Enter your password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className={`absolute right-3 top-1/2 transform -translate-y-1/2 hover:opacity-75 ${
+                    isDarkMode ? 'text-slate-400' : 'text-gray-400'
+                  }`}
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -108,7 +154,11 @@ const Authentication = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className={`w-full py-3 px-4 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors ${
+                isDarkMode
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-offset-slate-800'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-offset-white'
+              }`}
             >
               {isLoading ? (
                 <>

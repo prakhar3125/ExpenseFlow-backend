@@ -10,16 +10,17 @@ import Dashboard from './pages/Dashboard';
 import Authentication from './pages/Authentication';
 import './App.css';
 
+// src/App.js
 function App() {
   return (
-    <ThemeProvider> {/* Wrap with ThemeProvider */}
+    <ThemeProvider>
       <AuthProvider>
         <Router>
           <div className="App">
             <Navigation />
             <Routes>
-              {/* Public Routes */}
-              <Route path="/login" element={<Authentication />} />
+              {/* Public Routes - Change /login to /auth */}
+              <Route path="/auth" element={<Authentication />} />
               
               {/* Protected Routes */}
               <Route path="/dashboard" element={
@@ -33,11 +34,11 @@ function App() {
                 </ProtectedRoute>
               } />
               
-              {/* Default redirect to dashboard */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              {/* Default redirect to auth page */}
+              <Route path="/" element={<Navigate to="/auth" replace />} />
               
-              {/* 404 route */}
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              {/* 404 route - redirect to auth */}
+              <Route path="*" element={<Navigate to="/auth" replace />} />
             </Routes>
           </div>
         </Router>
@@ -45,5 +46,6 @@ function App() {
     </ThemeProvider>
   );
 }
+
 
 export default App;
