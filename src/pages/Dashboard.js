@@ -177,13 +177,14 @@ const PIE_CHART_COLORS = isDarkMode
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            ExpenseFlow - AI Powered Expense Tracker
-          </h1>
-          <p className="text-lg md:text-xl text-gray-600 mt-2">
-            Smart insights into your spending patterns across all accounts.
-          </p>
-        </div>
+  <h1 className="text-4xl md:text-5xl font-bold text-blue-600">
+    ExpenseFlow - AI Powered Expense Tracker
+  </h1>
+  <p className="text-lg md:text-xl text-gray-600 mt-2">
+    Smart insights into your spending patterns across all accounts.
+  </p>
+</div>
+
 
         {/* Source Selection Filter */}
         <div className="mb-8 bg-white p-6 rounded-2xl shadow-lg">
