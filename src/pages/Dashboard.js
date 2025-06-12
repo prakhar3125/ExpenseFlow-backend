@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useTheme } from '../context/ThemeContext'; // ✅ Import at top of file
+
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { DollarSign, Tag, Calendar, TrendingUp, AlertCircle, Search, Filter, Download, Eye, EyeOff, Wallet, Smartphone, Building2, CreditCard, PiggyBank, TrendingDown } from 'lucide-react';
 
@@ -34,7 +36,8 @@ const ExpenseDashboard = ({ expenses, sources, sourceBalances }) => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [showDetails, setShowDetails] = useState(false);
-  
+  const { isDarkMode } = useTheme();
+
   // State for multi-source filtering
   const [selectedSources, setSelectedSources] = useState(['all']);
 
@@ -117,8 +120,9 @@ const ExpenseDashboard = ({ expenses, sources, sourceBalances }) => {
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 5);
 
-  const PIE_CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#38BDF8', '#F97316', '#EC4899'];
-
+const PIE_CHART_COLORS = isDarkMode 
+    ? ['#60A5FA', '#34D399', '#FBBF24', '#F87171', '#A78BFA', '#38BDF8', '#FB7185', '#EC4899']
+    : ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#38BDF8', '#F97316', '#EC4899'];
   const exportData = () => {
     const csvContent = "data:text/csv;charset=utf-8," + 
       "Date,Vendor,Category,Amount,Source,Description\n" +
@@ -174,7 +178,7 @@ const ExpenseDashboard = ({ expenses, sources, sourceBalances }) => {
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Multi-Source Dashboard
+            ExpenseFlow - AI Powered Expense Tracker
           </h1>
           <p className="text-lg md:text-xl text-gray-600 mt-2">
             Smart insights into your spending patterns across all accounts.
@@ -289,24 +293,53 @@ const ExpenseDashboard = ({ expenses, sources, sourceBalances }) => {
               {/* Pie Chart with more space */}
               <div className="bg-white p-6 rounded-2xl shadow-lg">
                 <h3 className="text-xl font-semibold text-gray-800 mb-4 text-center">Category Breakdown</h3>
-                <ResponsiveContainer width="100%" height={400}>
-                    <PieChart margin={{ top: 20, right: 40, bottom: 20, left: 40 }}>
-                        <Pie 
-                            data={categoryData} 
-                            dataKey="value" 
-                            nameKey="name" 
-                            cx="50%" 
-                            cy="50%" 
-                            outerRadius={120} 
-                            fill="#8884d8" 
-                            labelLine={true}
-                            label={renderCustomizedLabel}
-                        >
-                            {categoryData.map((entry, index) => (<Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} />))}
-                        </Pie>
-                        <Tooltip content={<CustomTooltip />} />
-                    </PieChart>
-                </ResponsiveContainer>
+<ResponsiveContainer width="100%" height={300}>
+  <PieChart>
+    <Pie
+      data={categoryData}
+      cx="50%"
+      cy="50%"
+      labelLine={false}
+      label={renderCustomizedLabel}
+      outerRadius={80}
+      fill="#8884d8"
+      dataKey="value"
+    >
+      {categoryData.map((entry, index) => (
+        <Cell 
+          key={`cell-${index}`} 
+          fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} 
+        />
+      ))}
+    </Pie>
+    <Tooltip 
+      contentStyle={{
+        backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+        border: `1px solid ${isDarkMode ? '#475569' : '#e2e8f0'}`,
+        borderRadius: '6px',
+        color: isDarkMode ? '#f8fafc' : '#1e293b',
+        boxShadow: isDarkMode 
+          ? '0 10px 15px -3px rgba(0, 0, 0, 0.3)' 
+          : '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+      }}
+      itemStyle={{
+        color: isDarkMode ? '#f8fafc' : '#1e293b',
+        fontSize: '14px',
+        fontWeight: '500'
+      }}
+      labelStyle={{
+        color: isDarkMode ? '#cbd5e1' : '#64748b',
+        fontSize: '12px',
+        fontWeight: '400'
+      }}
+      wrapperStyle={{
+        outline: 'none'
+      }}
+    />
+  </PieChart>
+</ResponsiveContainer>
+
+
               </div>
             </div>
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LogOut, Plus, BarChart3, User } from 'lucide-react';
-
+import DarkModeToggle from './DarkModeToggle';
 const Navigation = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -57,7 +57,7 @@ const Navigation = () => {
               <User size={16} />
               <span>{user.name || user.email}</span>
             </div>
-            
+            <DarkModeToggle />
             <button
               onClick={handleLogout}
               className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 hover:text-red-600 rounded-md"

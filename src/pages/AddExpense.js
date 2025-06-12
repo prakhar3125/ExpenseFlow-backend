@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Camera, Upload, Plus, Edit2, Trash2, Eye, DollarSign, Calendar, Building, Tag, Loader2, Check, AlertCircle, Brain, CreditCard, Wallet, Building2, Smartphone, PiggyBank, Settings, TrendingUp, TrendingDown, BarChart3, PieChart, Filter, Search, Bell, MoreVertical } from 'lucide-react';
 import Tesseract from 'tesseract.js';
+import { useTheme } from '../context/ThemeContext';
 
 const ExpenseTracker = () => {
   const [expenses, setExpenses] = useState([]);
@@ -9,7 +10,7 @@ const ExpenseTracker = () => {
   const [showSourceManager, setShowSourceManager] = useState(false);
   const [activeSourceView, setActiveSourceView] = useState('all');
   const [sourceBalances, setSourceBalances] = useState({});
-  
+  const { isDarkMode } = useTheme(); // 
   // Existing state variables
   const [currentExpense, setCurrentExpense] = useState({
     amount: '',
@@ -1120,7 +1121,7 @@ Use your real-time search capabilities to verify business names and enhance cate
                   </div>
                   <div>
                     <h1 className="text-3xl font-bold text-gray-900">
-                      Multi-Source Expense Tracker
+                      ExpenseFlow - AI Powered Expense Tracker
                     </h1>
                     <p className="text-gray-500 mt-1">
                       Enhanced OCR + Perplexity AI with source-based management
@@ -1528,34 +1529,7 @@ Use your real-time search capabilities to verify business names and enhance cate
                     Enhanced Receipt Processing
                   </h3>
 
-                  {/* Perplexity AI Features Box */}
-                  <div className="mb-4 p-4 bg-blue-50 border-l-4 border-blue-400">
-                    <p className="font-semibold text-blue-800">
-                      Perplexity AI Enhanced Features:
-                    </p>
-                    <ul className="list-disc list-inside text-sm text-blue-700 mt-2 space-y-1">
-                      <li>Real-time business verification and standardization</li>
-                      <li>Advanced OCR error correction with AI intelligence</li>
-                      <li>Context-aware categorization using current data</li>
-                      <li>Smart amount detection with decimal correction</li>
-                      <li>Automatic form filling with verified information</li>
-                      <li>Image quality validation and enhancement</li>
-                    </ul>
-                  </div>
 
-                  {/* Image Quality Tips Box */}
-                  <div className="mb-4 p-4 bg-yellow-50 border-l-4 border-yellow-400">
-                    <p className="font-semibold text-yellow-800">
-                      For Best Results:                    </p>
-                    <ul className="list-disc list-inside text-sm text-yellow-700 mt-2 space-y-1">
-                      <li>Ensure good lighting without shadows or glare</li>
-                      <li>Keep receipt flat and aligned, covering the frame</li>
-                      <li>Clean the receipt surface (remove wrinkles/stains)</li>
-                      <li>Focus on the total amount area if possible</li>
-                      <li>Use high resolution (300+ DPI when scanning)</li>
-                      <li>Avoid blurry or tilted images</li>
-                    </ul>
-                  </div>
                   
                   {/* Rate Limit Warning */}
                   {apiCallCount > 10 && (
