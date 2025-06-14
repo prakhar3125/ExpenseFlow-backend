@@ -938,65 +938,71 @@ Use your real-time search capabilities to verify business names and enhance cate
     }
   };
 
-  // Source Management Functions
-  const handleSourceSubmit = () => {
-    if (!currentSource.name || !currentSource.type || currentSource.initialBalance === '') {
-      alert('Please fill in all required fields');
-      return;
-    }
+const handleSourceSubmit = () => {
+  if (!currentSource.name || !currentSource.type) {
+    alert('Please fill in all required fields');
+    return;
+  }
 
-    let updatedSources;
-    
-    if (isEditingSource) {
-      updatedSources = sources.map(source => 
-        source.id === editingSourceId 
-          ? { ...currentSource, initialBalance: parseFloat(currentSource.initialBalance) }
-          : source
-      );
-      setIsEditingSource(false);
-      setEditingSourceId(null);
-    } else {
-      const newSource = {
-        ...currentSource,
-        id: `${currentSource.type.toLowerCase()}_${Date.now()}`,
-        initialBalance: parseFloat(currentSource.initialBalance),
-        balance: parseFloat(currentSource.initialBalance)
-      };
-      updatedSources = [...sources, newSource];
-    }
-    
-    setSources(updatedSources);
-    localStorage.setItem('expenseSources', JSON.stringify(updatedSources));
-    
-    resetSourceForm();
-  };
+  let updatedSources;
+  const addAmount = parseFloat(currentSource.initialBalance) || 0;
+  
+  if (isEditingSource) {
+    updatedSources = sources.map(source => 
+      source.id === editingSourceId 
+        ? { 
+            ...currentSource, 
+            initialBalance: source.initialBalance + addAmount // Add to existing balance
+          }
+        : source
+    );
+    setIsEditingSource(false);
+    setEditingSourceId(null);
+  } else {
+    const newSource = {
+      ...currentSource,
+      id: `${currentSource.type.toLowerCase()}_${Date.now()}`,
+      initialBalance: addAmount, // For new sources, start with the add amount (0 if empty)
+      balance: addAmount
+    };
+    updatedSources = [...sources, newSource];
+  }
+  
+  setSources(updatedSources);
+  localStorage.setItem('expenseSources', JSON.stringify(updatedSources));
+  
+  resetSourceForm();
+};
 
-  const resetSourceForm = () => {
-    setCurrentSource({
-      id: '',
-      type: '',
-      name: '',
-      balance: '',
-      initialBalance: '',
-      isActive: true,
-      alertThreshold: '',
-      preferredCategories: [],
-      color: sourceColors[Math.floor(Math.random() * sourceColors.length)],
-      description: ''
-    });
-    setShowSourceForm(false);
-  };
 
-  const editSource = (source) => {
-    setCurrentSource({
-      ...source,
-      initialBalance: source.initialBalance.toString(),
-      alertThreshold: source.alertThreshold.toString()
-    });
-    setIsEditingSource(true);
-    setEditingSourceId(source.id);
-    setShowSourceForm(true);
-  };
+const resetSourceForm = () => {
+  setCurrentSource({
+    id: '',
+    type: '',
+    name: '',
+    balance: '',
+    initialBalance: '', // Keep empty for the add amount input
+    isActive: true,
+    alertThreshold: '',
+    preferredCategories: [],
+    color: sourceColors[Math.floor(Math.random() * sourceColors.length)],
+    description: ''
+  });
+  setShowSourceForm(false);
+};
+
+
+const editSource = (source) => {
+  setCurrentSource({
+    ...source,
+    initialBalance: '', // Clear the add amount field when editing
+    alertThreshold: source.alertThreshold.toString()
+  });
+  setIsEditingSource(true);
+  setEditingSourceId(source.id);
+  setShowSourceForm(true);
+};
+
 
   const deleteSource = (id) => {
     if (sources.length <= 1) {
@@ -1327,18 +1333,39 @@ Use your real-time search capabilities to verify business names and enhance cate
                         />
                       </div>
                       
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Initial Balance *</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={currentSource.initialBalance}
-                          onChange={(e) => setCurrentSource({...currentSource, initialBalance: e.target.value})}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="0.00"
-                        />
-                      </div>
-                      
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">Add Amount</label>
+  <input
+    type="number"
+    step="0.01"
+    value={currentSource.initialBalance}
+    onChange={(e) => setCurrentSource({...currentSource, initialBalance: e.target.value})}
+    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+    placeholder="Amount to add (0.00)"
+  />
+  <p className="text-sm text-gray-500 mt-1">
+    {isEditingSource 
+      ? "Amount to add to current balance" 
+      : "Starting amount for new source (0 by default)"
+    }
+  </p>
+</div>
+{isEditingSource && (
+  <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+    <p className="text-sm font-medium text-blue-800">
+      Current Balance: {formatIndianCurrency(
+        sources.find(s => s.id === editingSourceId)?.initialBalance || 0
+      )}
+    </p>
+    <p className="text-xs text-blue-600">
+      New balance will be: {formatIndianCurrency(
+        (sources.find(s => s.id === editingSourceId)?.initialBalance || 0) + 
+        (parseFloat(currentSource.initialBalance) || 0)
+      )}
+    </p>
+  </div>
+)}
+
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Low Balance Alert Threshold</label>
                         <input
