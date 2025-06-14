@@ -3,7 +3,14 @@ import { useTheme } from '../context/ThemeContext'; // ✅ Import at top of file
 
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { DollarSign, Tag, Calendar, TrendingUp, AlertCircle, Search, Filter, Download, Eye, EyeOff, Wallet, Smartphone, Building2, CreditCard, PiggyBank, TrendingDown } from 'lucide-react';
-
+const RupeeIcon = ({ size = 20, className = "" }) => (
+  <div 
+    className={`inline-flex items-center justify-center font-bold text-blue-600 ${className}`}
+    style={{ fontSize: `${size}px`, width: `${size}px`, height: `${size}px` }}
+  >
+    ₹
+  </div>
+);
 // Helper function from AddExpense.js to format currency
 const formatIndianCurrency = (amount) => {
   if (isNaN(amount) || amount === null) return '₹0.00';
@@ -271,8 +278,7 @@ const PIE_CHART_COLORS = isDarkMode
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <SummaryCard icon={DollarSign} title="Total Balance" value={formatIndianCurrency(totalBalance)} color="blue" subtitle={`Across ${sources.length} sources`} />
-              <SummaryCard icon={TrendingDown} title="Total Spent" value={formatIndianCurrency(totalExpenses)} change={changePercentage} color="red" />
+<SummaryCard icon={RupeeIcon} title="Total Balance" value={formatIndianCurrency(totalBalance)} color="blue" subtitle={`Across ${sources.length} sources`} />              <SummaryCard icon={TrendingDown} title="Total Spent" value={formatIndianCurrency(totalExpenses)} change={changePercentage} color="red" />
               <SummaryCard icon={Tag} title="Top Category" value={topCategory} color="purple" subtitle={`${categoryData.length} categories`} />
               <SummaryCard icon={Calendar} title="Transactions" value={transactionCount.toString()} color="amber" subtitle={`Avg ${formatIndianCurrency(averageTransaction)}`} />
             </div>

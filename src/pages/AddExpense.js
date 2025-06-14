@@ -1123,7 +1123,8 @@ const editSource = (source) => {
               <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
                 <div className="flex items-center gap-4">
                   <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-lg flex items-center justify-center">
-                    <DollarSign className="w-6 h-6" />
+                    <span className="text-2xl font-bold">₹</span>
+
                   </div>
                   <div>
                     <h1 className="text-3xl font-bold text-gray-900">
@@ -2159,7 +2160,6 @@ const editSource = (source) => {
                             </div>
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600">
                               <span className="flex items-center gap-1.5 font-mono font-medium text-green-700">
-                                <DollarSign size={14} />
                                 {formatIndianCurrency(expense.amount)}
                               </span>
                               <span className="flex items-center gap-1.5">
