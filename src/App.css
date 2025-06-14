@@ -130,6 +130,135 @@ html {
 }
 
 /* ============================================================================= */
+/* AUTHENTICATION PAGE SPECIFIC FIXES                                           */
+/* ============================================================================= */
+
+/* Main authentication container backgrounds */
+.dark-theme .min-h-screen,
+.dark-theme .bg-gradient-to-br {
+  background: linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a) !important;
+}
+
+/* Left panel background in dark mode */
+.dark-theme .bg-slate-900\/50,
+.dark-theme .bg-slate-900 {
+  background-color: rgba(15, 23, 42, 0.8) !important;
+}
+
+/* Authentication form card background */
+.dark-theme .bg-slate-800\/80 {
+  background-color: rgba(30, 41, 59, 0.9) !important;
+  border-color: rgba(71, 85, 105, 0.5) !important;
+}
+
+/* Text colors for authentication page */
+.dark-theme .text-slate-100,
+.dark-theme .text-white {
+  color: #f8fafc !important;
+}
+
+.dark-theme .text-slate-300 {
+  color: #cbd5e1 !important;
+}
+
+.dark-theme .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+.dark-theme .text-slate-500 {
+  color: #64748b !important;
+}
+
+/* Input fields in dark mode */
+.dark-theme .bg-slate-700 {
+  background-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+.dark-theme .border-slate-600 {
+  border-color: #475569 !important;
+}
+
+.dark-theme .border-slate-700\/50 {
+  border-color: rgba(51, 65, 85, 0.5) !important;
+}
+
+.dark-theme .placeholder-slate-400::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Demo credentials box in dark mode */
+.dark-theme .bg-blue-900\/20 {
+  background-color: rgba(30, 58, 138, 0.2) !important;
+}
+
+.dark-theme .border-blue-700\/50 {
+  border-color: rgba(29, 78, 216, 0.5) !important;
+}
+
+.dark-theme .text-blue-300 {
+  color: #93c5fd !important;
+}
+
+.dark-theme .text-blue-400 {
+  color: #60a5fa !important;
+}
+
+/* Error messages in dark mode */
+.dark-theme .bg-red-900\/20 {
+  background-color: rgba(127, 29, 29, 0.2) !important;
+}
+
+.dark-theme .border-red-500 {
+  border-color: #ef4444 !important;
+}
+
+.dark-theme .text-red-300 {
+  color: #fca5a5 !important;
+}
+
+/* Button gradients in dark mode */
+.dark-theme .bg-gradient-to-r.from-blue-600.to-blue-700 {
+  background: linear-gradient(to right, #60a5fa, #3b82f6) !important;
+}
+
+.dark-theme .bg-gradient-to-r.from-blue-600.to-blue-700:hover {
+  background: linear-gradient(to right, #3b82f6, #2563eb) !important;
+}
+
+/* Social proof section in dark mode */
+.dark-theme .bg-slate-800\/50 {
+  background-color: rgba(30, 41, 59, 0.5) !important;
+}
+
+.dark-theme .bg-slate-600 {
+  background-color: #475569 !important;
+}
+
+.dark-theme .border-slate-800 {
+  border-color: #1e293b !important;
+}
+
+/* Green checkmark icons */
+.dark-theme .text-green-400 {
+  color: #4ade80 !important;
+}
+
+.dark-theme .text-green-300 {
+  color: #86efac !important;
+}
+
+/* Focus states for inputs in dark mode */
+.dark-theme input:focus,
+.dark-theme textarea:focus,
+.dark-theme select:focus {
+  background-color: #334155 !important;
+  border-color: #60a5fa !important;
+  color: #f8fafc !important;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1) !important;
+}
+
+/* ============================================================================= */
 /* NAVBAR SPECIFIC FIXES                                                        */
 /* ============================================================================= */
 
@@ -297,6 +426,10 @@ textarea::placeholder {
 
 .bg-gray-100 {
   background-color: var(--bg-tertiary) !important;
+}
+
+.bg-gray-900 {
+  background-color: var(--bg-primary) !important;
 }
 
 .bg-blue-50 {

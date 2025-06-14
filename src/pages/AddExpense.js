@@ -12,15 +12,17 @@ const ExpenseTracker = () => {
   const [sourceBalances, setSourceBalances] = useState({});
   const { isDarkMode } = useTheme(); // 
   // Existing state variables
-  const [currentExpense, setCurrentExpense] = useState({
-    amount: '',
-    vendor: '',
-    date: '',
-    category: '',
-    description: '',
-    receiptImage: null,
-    sourceId: '' // Added source selection
-  });
+// Update the initial currentExpense state
+const [currentExpense, setCurrentExpense] = useState({
+  amount: '',
+  vendor: '',
+  date: new Date().toISOString().split('T')[0], // Set today's date as default
+  category: '',
+  description: '',
+  receiptImage: null,
+  sourceId: ''
+});
+
   
   const [currentSource, setCurrentSource] = useState({
     id: '',
@@ -497,57 +499,59 @@ const ExpenseTracker = () => {
     return '';
   };
 
-  const extractDateBasic = (text) => {
-    const correctedText = correctOCRErrors(text);
-    const lines = correctedText.split('\n');
-    
-    const datePatterns = [
-      /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/,
-      /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/,
-      /(\d{1,2}\s+\w{3,9}\s+\d{4})/i,
-      /(\w{3,9}\s+\d{1,2},?\s+\d{4})/i,
-      /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2})/,
-      /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})\s+\d{1,2}:\d{2}/,
-      /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})\s+\d{1,2}:\d{2}/
-    ];
-    
-    for (const line of lines) {
-      for (const pattern of datePatterns) {
-        const match = line.match(pattern);
-        if (match) {
-          const dateStr = match[1];
-          let parsedDate;
-          
-          try {
-            if (dateStr.includes('/') || dateStr.includes('-')) {
-              const parts = dateStr.split(/[\/\-]/);
-              if (parts.length === 3) {
-                if (parseInt(parts[0]) > 12) {
-                  if (parseInt(parts[0]) > 31) {
-                    parsedDate = new Date(parts[0], parts[1] - 1, parts[2]);
-                  } else {
-                    parsedDate = new Date(parts[2], parts[1] - 1, parts[0]);
-                  }
+const extractDateBasic = (text) => {
+  const correctedText = correctOCRErrors(text);
+  const lines = correctedText.split('\n');
+  
+  const datePatterns = [
+    /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/,
+    /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/,
+    /(\d{1,2}\s+\w{3,9}\s+\d{4})/i,
+    /(\w{3,9}\s+\d{1,2},?\s+\d{4})/i,
+    /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2})/,
+    /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})\s+\d{1,2}:\d{2}/,
+    /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})\s+\d{1,2}:\d{2}/
+  ];
+  
+  for (const line of lines) {
+    for (const pattern of datePatterns) {
+      const match = line.match(pattern);
+      if (match) {
+        const dateStr = match[1];
+        let parsedDate;
+        
+        try {
+          if (dateStr.includes('/') || dateStr.includes('-')) {
+            const parts = dateStr.split(/[\/\-]/);
+            if (parts.length === 3) {
+              if (parseInt(parts[0]) > 12) {
+                if (parseInt(parts[0]) > 31) {
+                  parsedDate = new Date(parts[0], parts[1] - 1, parts[2]);
                 } else {
-                  parsedDate = new Date(parts[2], parts[0] - 1, parts[1]);
+                  parsedDate = new Date(parts[2], parts[1] - 1, parts[0]);
                 }
+              } else {
+                parsedDate = new Date(parts[2], parts[0] - 1, parts[1]);
               }
-            } else {
-              parsedDate = new Date(dateStr);
             }
-            
-            if (!isNaN(parsedDate.getTime())) {
-              return parsedDate.toISOString().split('T')[0];
-            }
-          } catch (error) {
-            continue;
+          } else {
+            parsedDate = new Date(dateStr);
           }
+          
+          if (!isNaN(parsedDate.getTime())) {
+            return parsedDate.toISOString().split('T')[0];
+          }
+        } catch (error) {
+          continue;
         }
       }
     }
-    
-    return new Date().toISOString().split('T')[0];
-  };
+  }
+  
+  // Return today's date if no valid date found in receipt
+  return new Date().toISOString().split('T')[0];
+};
+
 
   const canMakeApiCall = () => {
     const now = Date.now();
@@ -1055,26 +1059,27 @@ const editSource = (source) => {
     resetForm();
   };
   
-  const resetForm = () => {
-    setCurrentExpense({
-      amount: '',
-      vendor: '',
-      date: '',
-      category: '',
-      description: '',
-      receiptImage: null,
-      sourceId: ''
-    });
-    setShowForm(false);
-    setSelectedImage(null);
-    setExtractedText('');
-    setAiCategorizedData(null);
-    setAiError('');
-    setAiSuccess(false);
-    setImageQualityWarning('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
-  };
+const resetForm = () => {
+  setCurrentExpense({
+    amount: '',
+    vendor: '',
+    date: new Date().toISOString().split('T')[0], // Reset to today's date
+    category: '',
+    description: '',
+    receiptImage: null,
+    sourceId: ''
+  });
+  setShowForm(false);
+  setSelectedImage(null);
+  setExtractedText('');
+  setAiCategorizedData(null);
+  setAiError('');
+  setAiSuccess(false);
+  setImageQualityWarning('');
+  if (fileInputRef.current) fileInputRef.current.value = '';
+  if (cameraInputRef.current) cameraInputRef.current.value = '';
+};
+
   
   const editExpense = (expense) => {
     setCurrentExpense({
