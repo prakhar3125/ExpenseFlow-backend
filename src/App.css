@@ -1,14 +1,5 @@
-.App {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
 
-.main-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
+
 /* ============================================================================= */
 /* APP.CSS - COMPLETE REWRITE FOR PROPER LIGHT/DARK MODE THEMING              */
 /* ============================================================================= */
