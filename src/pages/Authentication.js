@@ -15,10 +15,18 @@ import {
   ArrowRight,
   Sparkles
 } from 'lucide-react';
+const RupeeIcon = ({ size = 20, className = "" }) => (
+  <div 
+    className={`inline-flex items-center justify-center font-bold text-white ${className}`}
+    style={{ fontSize: `${size}px`, width: `${size}px`, height: `${size}px` }}
+  >
+    ₹
+  </div>
+);
 
 const Authentication = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('user@example.com');
+const [password, setPassword] = useState('password');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -80,7 +88,7 @@ const Authentication = () => {
       }
 
       if (result.success) {
-        const from = location.state?.from?.pathname || '/dashboard';
+        const from = location.state?.from?.pathname || '/add-expense';
         navigate(from, { replace: true });
       } else {
         setError(result.error || 'Authentication failed. Please try again.');
@@ -119,12 +127,13 @@ const Authentication = () => {
         <div className="max-w-lg">
           <div className="flex items-center gap-3 mb-8">
             <div className={`p-3 rounded-2xl ${
-              isDarkMode ? 'bg-blue-600' : 'bg-white/20'
-            }`}>
-              <DollarSign className={`h-10 w-10 ${
-                isDarkMode ? 'text-white' : 'text-white'
-              }`} />
-            </div>
+  isDarkMode ? 'bg-blue-600' : 'bg-white/20'
+}`}>
+  <RupeeIcon size={40} className={
+    isDarkMode ? 'text-white' : 'text-white'
+  } />
+</div>
+
             <div>
               <h1 className={`text-3xl font-bold ${
                 isDarkMode ? 'text-white' : 'text-white'
@@ -195,10 +204,10 @@ const Authentication = () => {
           <div className="lg:hidden text-center mb-8">
             <div className="flex justify-center items-center gap-3 mb-4">
               <div className={`p-3 rounded-2xl ${
-                isDarkMode ? 'bg-blue-600' : 'bg-blue-600'
-              }`}>
-                <DollarSign className="h-8 w-8 text-white" />
-              </div>
+  isDarkMode ? 'bg-blue-600' : 'bg-blue-600'
+}`}>
+  <RupeeIcon size={32} className="text-white" />
+</div>
               <h1 className={`text-2xl font-bold ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>ExpenseFlow</h1>
@@ -227,7 +236,7 @@ const Authentication = () => {
             </div>
 
             {/* Demo credentials - only show on login */}
-            {isLogin && (
+            {/* {isLogin && (
               <div className={`mb-6 p-4 rounded-xl border-2 border-dashed ${
                 isDarkMode 
                   ? 'bg-blue-900/20 border-blue-700/50' 
@@ -248,7 +257,7 @@ const Authentication = () => {
                   <p><strong>Password:</strong> password</p>
                 </div>
               </div>
-            )}
+            )} */}
 
             <form onSubmit={handleSubmit} className="space-y-6">
               {error && (
