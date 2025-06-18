@@ -4,7 +4,11 @@ package com.expensetracker.backend.service;
 import com.expensetracker.backend.dto.ExpenseDto;
 import com.expensetracker.backend.dto.CreateExpenseRequest;
 import com.expensetracker.backend.model.Expense;
+import com.expensetracker.backend.model.Source;
+import com.expensetracker.backend.model.User;
 import com.expensetracker.backend.repository.ExpenseRepository;
+import com.expensetracker.backend.repository.SourceRepository;
+import com.expensetracker.backend.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 
@@ -17,6 +21,8 @@ import java.util.stream.Collectors;
 public class ExpenseService {
 
     private final ExpenseRepository expenseRepository;
+    private final UserRepository userRepository;
+    private final SourceRepository sourceRepository;
 
     public List<ExpenseDto> getFilteredExpenses(Integer userId, int dateRange, String category, List<Integer> sourceIds) {
         LocalDate endDate = LocalDate.now();
@@ -35,7 +41,24 @@ public class ExpenseService {
         return expenses.stream().map(this::convertToDto).collect(Collectors.toList());
     }
 
-    // Add create, update, and delete methods here...
+    public ExpenseDto addExpense(Integer userId, CreateExpenseRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        Source source = sourceRepository.findById(request.getSourceId())
+                .orElseThrow(() -> new IllegalArgumentException("Source not found"));
+
+        Expense expense = new Expense();
+        expense.setUser(user);
+        expense.setSource(source);
+        expense.setAmount(request.getAmount());
+        expense.setVendor(request.getVendor());
+        expense.setCategory(request.getCategory());
+        expense.setDescription(request.getDescription());
+        expense.setTransactionDate(request.getTransactionDate());
+
+        Expense savedExpense = expenseRepository.save(expense);
+        return convertToDto(savedExpense);
+    }
 
     private ExpenseDto convertToDto(Expense expense) {
         ExpenseDto dto = new ExpenseDto();

@@ -22,11 +22,6 @@ public class AuthService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
 
-    /**
-     * Registers a new user. The return type is void because the controller
-     * doesn't need the created User object back.
-     * @param signUpRequest The user's sign-up details.
-     */
     public void signUp(SignUpRequest signUpRequest) {
         User user = new User();
         user.setEmail(signUpRequest.getEmail());
@@ -35,7 +30,6 @@ public class AuthService {
     }
 
     public JwtAuthenticationResponse login(LoginRequest loginRequest) {
-        // Authenticate the user. If credentials are bad, this will throw an exception.
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())
         );
@@ -47,7 +41,6 @@ public class AuthService {
 
         JwtAuthenticationResponse response = new JwtAuthenticationResponse();
         response.setToken(jwt);
-        // Note: A refresh token could be added here for more robust security
 
         return response;
     }

@@ -27,6 +27,11 @@ public class Source {
     @Column(name = "initial_balance", precision = 15, scale = 2)
     private BigDecimal initialBalance = BigDecimal.ZERO;
 
+    // This is a 'transient' field, meaning it's not stored in the database.
+    // It will be calculated and populated by the service layer.
+    @Transient
+    private BigDecimal currentBalance;
+
     private String color = "#3B82F6";
 
     @Column(name = "alert_threshold", precision = 15, scale = 2)

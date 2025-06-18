@@ -13,7 +13,7 @@ import java.util.Set;
 @Data
 @Entity
 @Table(name = "users")
-public class User implements UserDetails { // <-- Implements UserDetails
+public class User implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,13 +38,11 @@ public class User implements UserDetails { // <-- Implements UserDetails
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // We are not using roles, so we return an empty list.
         return Collections.emptyList();
     }
 
     @Override
     public String getUsername() {
-        // Spring Security's "username" will be the user's email.
         return this.email;
     }
 

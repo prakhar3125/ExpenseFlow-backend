@@ -1,6 +1,5 @@
 package com.expensetracker.backend.repository;
 
-package com.expensetracker.backend.repository;
 
 import com.expensetracker.backend.model.Source;
 import org.springframework.data.jpa.repository.JpaRepository;
