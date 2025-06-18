@@ -8,7 +8,7 @@ import lombok.Data;
 public class ExpenseDto {
     private Integer id;
     private Integer sourceId;
-    private String sourceName; // For display
+    private String sourceName;
     private BigDecimal amount;
     private String vendor;
     private String category;

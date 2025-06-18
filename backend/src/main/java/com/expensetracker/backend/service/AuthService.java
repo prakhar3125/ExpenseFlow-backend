@@ -22,11 +22,16 @@ public class AuthService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
 
-    public User signUp(SignUpRequest signUpRequest) {
+    /**
+     * Registers a new user. The return type is void because the controller
+     * doesn't need the created User object back.
+     * @param signUpRequest The user's sign-up details.
+     */
+    public void signUp(SignUpRequest signUpRequest) {
         User user = new User();
         user.setEmail(signUpRequest.getEmail());
         user.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
-        return userRepository.save(user);
+        userRepository.save(user);
     }
 
     public JwtAuthenticationResponse login(LoginRequest loginRequest) {

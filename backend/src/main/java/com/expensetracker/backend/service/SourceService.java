@@ -41,7 +41,7 @@ public class SourceService {
 
         // Calculate current balance by summing expenses for this source
         BigDecimal totalExpenses = expenseRepository.findByUserIdAndSourceIdInAndTransactionDateBetween(
-                        userId, List.of(source.getId()), LocalDate.MIN, LocalDate.MAX())
+                        userId, List.of(source.getId()), LocalDate.MIN, LocalDate.MAX)
                 .stream()
                 .map(e -> e.getAmount())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -51,3 +51,4 @@ public class SourceService {
         return dto;
     }
 }
+

@@ -1,6 +1,5 @@
 package com.expensetracker.backend.service;
 
-import com.expensetracker.backend.model.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -17,6 +16,7 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
+    // Correctly reads the secret key from application.properties
     @Value("${token.signing.key}")
     private String jwtSigningKey;
 

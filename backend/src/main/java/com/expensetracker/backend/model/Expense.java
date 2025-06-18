@@ -2,10 +2,12 @@ package com.expensetracker.backend.model;
 
 
 import jakarta.persistence.*;
+import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+@Data
 @Entity
 @Table(name = "expenses")
 public class Expense {
@@ -25,10 +27,10 @@ public class Expense {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false)
     private String vendor;
 
-    @Column(nullable = false, length = 100)
+    @Column(nullable = false)
     private String category;
 
     @Lob
@@ -37,13 +39,9 @@ public class Expense {
     @Column(name = "transaction_date", nullable = false)
     private LocalDate transactionDate;
 
-    @Column(name = "receipt_image_url", length = 2048)
+    @Column(name = "receipt_image_url")
     private String receiptImageUrl;
 
     @Column(name = "created_at", updatable = false)
-    @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime createdAt = LocalDateTime.now();
-
-    // Getters and Setters
-    // ...
 }

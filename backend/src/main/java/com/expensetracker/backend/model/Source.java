@@ -1,10 +1,11 @@
 package com.expensetracker.backend.model;
 
-
 import jakarta.persistence.*;
+import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+@Data
 @Entity
 @Table(name = "sources")
 public class Source {
@@ -17,17 +18,15 @@ public class Source {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false, length = 100)
+    @Column(nullable = false)
     private String name;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private SourceType type;
 
-    @Column(name = "initial_balance", nullable = false, precision = 15, scale = 2)
+    @Column(name = "initial_balance", precision = 15, scale = 2)
     private BigDecimal initialBalance = BigDecimal.ZERO;
 
-    @Column(length = 7)
     private String color = "#3B82F6";
 
     @Column(name = "alert_threshold", precision = 15, scale = 2)
@@ -40,9 +39,5 @@ public class Source {
     private String description;
 
     @Column(name = "created_at", updatable = false)
-    @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime createdAt = LocalDateTime.now();
-
-    // Getters and Setters
-    // ...
 }
