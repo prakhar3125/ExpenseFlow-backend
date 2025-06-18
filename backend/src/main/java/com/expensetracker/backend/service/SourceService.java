@@ -1,4 +1,5 @@
 package com.expensetracker.backend.service;
+
 import com.expensetracker.backend.dto.SourceDto;
 import com.expensetracker.backend.model.Source;
 import com.expensetracker.backend.model.SourceType;
@@ -42,7 +43,33 @@ public class SourceService {
         return convertToDto(savedSource);
     }
 
-    // FIXED: The balance calculation now uses the new, dedicated repository method.
+    public SourceDto updateSource(Integer userId, Integer sourceId, SourceDto sourceDto) {
+        Source source = sourceRepository.findById(sourceId)
+                .filter(s -> s.getUser().getId().equals(userId))
+                .orElseThrow(() -> new IllegalArgumentException("Source not found or user not authorized"));
+
+        source.setName(sourceDto.getName());
+        source.setType(SourceType.valueOf(sourceDto.getType()));
+        source.setInitialBalance(sourceDto.getInitialBalance());
+        source.setColor(sourceDto.getColor());
+        source.setAlertThreshold(sourceDto.getAlertThreshold());
+        source.setActive(sourceDto.isActive());
+        source.setDescription(sourceDto.getDescription());
+
+        Source updatedSource = sourceRepository.save(source);
+        return convertToDto(updatedSource);
+    }
+
+    public void deleteSource(Integer userId, Integer sourceId) {
+        Source source = sourceRepository.findById(sourceId)
+                .filter(s -> s.getUser().getId().equals(userId))
+                .orElseThrow(() -> new IllegalArgumentException("Source not found or user not authorized"));
+
+        // Optionally, check if there are expenses associated before deleting
+
+        sourceRepository.delete(source);
+    }
+
     private SourceDto convertToDto(Source source) {
         SourceDto dto = new SourceDto();
         dto.setId(source.getId());
@@ -54,7 +81,6 @@ public class SourceService {
         dto.setActive(source.isActive());
         dto.setDescription(source.getDescription());
 
-        // Use the new repository method for a reliable calculation
         BigDecimal totalExpenses = expenseRepository.sumAmountBySourceId(source.getId());
         dto.setCurrentBalance(source.getInitialBalance().subtract(totalExpenses));
 

@@ -60,6 +60,35 @@ public class ExpenseService {
         return convertToDto(savedExpense);
     }
 
+    // FIXED: Added the business logic for updating an expense.
+    public ExpenseDto updateExpense(Integer userId, Integer expenseId, CreateExpenseRequest request) {
+        Expense expense = expenseRepository.findById(expenseId)
+                .filter(e -> e.getUser().getId().equals(userId))
+                .orElseThrow(() -> new IllegalArgumentException("Expense not found or user not authorized"));
+
+        Source source = sourceRepository.findById(request.getSourceId())
+                .orElseThrow(() -> new IllegalArgumentException("Source not found"));
+
+        expense.setSource(source);
+        expense.setAmount(request.getAmount());
+        expense.setVendor(request.getVendor());
+        expense.setCategory(request.getCategory());
+        expense.setDescription(request.getDescription());
+        expense.setTransactionDate(request.getTransactionDate());
+
+        Expense updatedExpense = expenseRepository.save(expense);
+        return convertToDto(updatedExpense);
+    }
+
+    // FIXED: Added the business logic for deleting an expense.
+    public void deleteExpense(Integer userId, Integer expenseId) {
+        Expense expense = expenseRepository.findById(expenseId)
+                .filter(e -> e.getUser().getId().equals(userId))
+                .orElseThrow(() -> new IllegalArgumentException("Expense not found or user not authorized"));
+
+        expenseRepository.delete(expense);
+    }
+
     private ExpenseDto convertToDto(Expense expense) {
         ExpenseDto dto = new ExpenseDto();
         dto.setId(expense.getId());

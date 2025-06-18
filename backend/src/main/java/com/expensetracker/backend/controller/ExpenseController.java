@@ -1,6 +1,5 @@
 package com.expensetracker.backend.controller;
 
-
 import com.expensetracker.backend.dto.CreateExpenseRequest;
 import com.expensetracker.backend.dto.ExpenseDto;
 import com.expensetracker.backend.model.User;
@@ -28,10 +27,25 @@ public class ExpenseController {
         return ResponseEntity.ok(expenses);
     }
 
-    // FIXED: Added the @PostMapping to handle creation of new expenses.
     @PostMapping
     public ResponseEntity<ExpenseDto> addExpense(@AuthenticationPrincipal User user, @RequestBody CreateExpenseRequest request) {
         ExpenseDto newExpense = expenseService.addExpense(user.getId(), request);
         return ResponseEntity.ok(newExpense);
+    }
+
+    // FIXED: Added the @PutMapping to handle updating an expense.
+    // It takes the expense ID from the URL path (e.g., /api/expenses/1).
+    @PutMapping("/{id}")
+    public ResponseEntity<ExpenseDto> updateExpense(@AuthenticationPrincipal User user, @PathVariable Integer id, @RequestBody CreateExpenseRequest request) {
+        ExpenseDto updatedExpense = expenseService.updateExpense(user.getId(), id, request);
+        return ResponseEntity.ok(updatedExpense);
+    }
+
+    // FIXED: Added the @DeleteMapping to handle deleting an expense.
+    // It takes the expense ID from the URL path.
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteExpense(@AuthenticationPrincipal User user, @PathVariable Integer id) {
+        expenseService.deleteExpense(user.getId(), id);
+        return ResponseEntity.noContent().build();
     }
 }
