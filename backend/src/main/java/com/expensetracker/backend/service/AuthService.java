@@ -1,5 +1,6 @@
 package com.expensetracker.backend.service;
 
+
 import com.expensetracker.backend.dto.SignUpRequest;
 import com.expensetracker.backend.dto.LoginRequest;
 import com.expensetracker.backend.dto.JwtAuthenticationResponse;
@@ -45,3 +46,4 @@ public class AuthService {
         return response;
     }
 }
+

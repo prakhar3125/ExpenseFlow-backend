@@ -60,7 +60,6 @@ public class ExpenseService {
         return convertToDto(savedExpense);
     }
 
-    // FIXED: Added the business logic for updating an expense.
     public ExpenseDto updateExpense(Integer userId, Integer expenseId, CreateExpenseRequest request) {
         Expense expense = expenseRepository.findById(expenseId)
                 .filter(e -> e.getUser().getId().equals(userId))
@@ -80,7 +79,6 @@ public class ExpenseService {
         return convertToDto(updatedExpense);
     }
 
-    // FIXED: Added the business logic for deleting an expense.
     public void deleteExpense(Integer userId, Integer expenseId) {
         Expense expense = expenseRepository.findById(expenseId)
                 .filter(e -> e.getUser().getId().equals(userId))
@@ -103,3 +101,4 @@ public class ExpenseService {
         return dto;
     }
 }
+

@@ -1,6 +1,7 @@
 package com.expensetracker.backend.service;
 
 import com.expensetracker.backend.dto.SourceDto;
+import com.expensetracker.backend.model.Expense;
 import com.expensetracker.backend.model.Source;
 import com.expensetracker.backend.model.SourceType;
 import com.expensetracker.backend.model.User;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -60,13 +62,20 @@ public class SourceService {
         return convertToDto(updatedSource);
     }
 
+    // FIXED: Updated the delete logic.
     public void deleteSource(Integer userId, Integer sourceId) {
+        // First, ensure the source belongs to the authenticated user.
         Source source = sourceRepository.findById(sourceId)
                 .filter(s -> s.getUser().getId().equals(userId))
                 .orElseThrow(() -> new IllegalArgumentException("Source not found or user not authorized"));
 
-        // Optionally, check if there are expenses associated before deleting
+        // Before deleting the source, find and delete all expenses associated with it.
+        List<Expense> expensesToDelete = expenseRepository.findByUserIdAndSourceIdInAndTransactionDateBetween(
+                userId, List.of(sourceId), LocalDate.MIN, LocalDate.MAX
+        );
+        expenseRepository.deleteAll(expensesToDelete);
 
+        // Now that the child 'expense' records are gone, it's safe to delete the 'source'.
         sourceRepository.delete(source);
     }
 
