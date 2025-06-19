@@ -10,6 +10,7 @@ import com.expensetracker.backend.repository.SourceRepository;
 import com.expensetracker.backend.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
+import jakarta.transaction.Transactional; // Import Transactional
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -40,11 +41,17 @@ public class SourceService {
         source.setType(SourceType.valueOf(sourceDto.getType()));
         source.setInitialBalance(sourceDto.getInitialBalance());
         source.setColor(sourceDto.getColor());
+        source.setAlertThreshold(sourceDto.getAlertThreshold());
+        source.setActive(sourceDto.isActive());
+        source.setDescription(sourceDto.getDescription());
+
 
         Source savedSource = sourceRepository.save(source);
         return convertToDto(savedSource);
     }
 
+    // --- MODIFIED METHOD ---
+    @Transactional // Ensures the entire method is a single, safe database operation.
     public SourceDto updateSource(Integer userId, Integer sourceId, SourceDto sourceDto) {
         Source source = sourceRepository.findById(sourceId)
                 .filter(s -> s.getUser().getId().equals(userId))
@@ -52,7 +59,11 @@ public class SourceService {
 
         source.setName(sourceDto.getName());
         source.setType(SourceType.valueOf(sourceDto.getType()));
-        source.setInitialBalance(sourceDto.getInitialBalance());
+
+        // --- THIS LINE IS REMOVED ---
+        // This prevents the original initial balance from being overwritten on edit.
+        // source.setInitialBalance(sourceDto.getInitialBalance());
+
         source.setColor(sourceDto.getColor());
         source.setAlertThreshold(sourceDto.getAlertThreshold());
         source.setActive(sourceDto.isActive());
@@ -62,7 +73,7 @@ public class SourceService {
         return convertToDto(updatedSource);
     }
 
-    // FIXED: Updated the delete logic.
+    @Transactional // Ensures the delete operation is atomic and safe.
     public void deleteSource(Integer userId, Integer sourceId) {
         // First, ensure the source belongs to the authenticated user.
         Source source = sourceRepository.findById(sourceId)
@@ -70,6 +81,8 @@ public class SourceService {
                 .orElseThrow(() -> new IllegalArgumentException("Source not found or user not authorized"));
 
         // Before deleting the source, find and delete all expenses associated with it.
+        // NOTE: The logic for deleting associated expenses is already correct in your ExpenseRepository.
+        // This explicit deletion is a good safety measure.
         List<Expense> expensesToDelete = expenseRepository.findByUserIdAndSourceIdInAndTransactionDateBetween(
                 userId, List.of(sourceId), LocalDate.MIN, LocalDate.MAX
         );

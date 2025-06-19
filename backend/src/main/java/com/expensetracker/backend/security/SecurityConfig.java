@@ -16,6 +16,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import static org.springframework.security.config.Customizer.withDefaults; // Import this
+
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -28,6 +30,9 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
+                // --- ADD THIS LINE ---
+                // This tells Spring Security to apply the CORS configuration from WebConfig
+                .cors(withDefaults())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll() // Allow access to auth endpoints
                         .anyRequest().authenticated() // Secure all other endpoints

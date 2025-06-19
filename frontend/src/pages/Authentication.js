@@ -15,6 +15,7 @@ import {
   ArrowRight,
   Sparkles
 } from 'lucide-react';
+
 const RupeeIcon = ({ size = 20, className = "" }) => (
   <div 
     className={`inline-flex items-center justify-center font-bold text-white ${className}`}
@@ -25,13 +26,14 @@ const RupeeIcon = ({ size = 20, className = "" }) => (
 );
 
 const Authentication = () => {
-  const [email, setEmail] = useState('user@example.com');
-const [password, setPassword] = useState('password');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [signupSuccess, setSignupSuccess] = useState(false); // State for success message
   const [isLogin, setIsLogin] = useState(true);
 
   const { login, signup, user } = useAuth();
@@ -57,10 +59,8 @@ const [password, setPassword] = useState('password');
       return false;
     }
 
-    if (!isLogin && password.length < 6) {
-      setError('Password must be at least 6 characters long');
-      return false;
-    }
+    // You can add more robust password validation here if needed
+    // For now, your backend handles the main logic
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -74,24 +74,31 @@ const [password, setPassword] = useState('password');
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSignupSuccess(false);
 
     if (!validateForm()) return;
 
     setIsLoading(true);
 
     try {
-      let result;
       if (isLogin) {
-        result = await login({ email, password });
+        const result = await login({ email, password });
+        if (!result.success) {
+          setError(result.error || 'Authentication failed. Please try again.');
+        }
+        // The useEffect will handle navigation on successful login
       } else {
-        result = await signup({ email, password });
-      }
-
-      if (result.success) {
-        const from = location.state?.from?.pathname || '/add-expense';
-        navigate(from, { replace: true });
-      } else {
-        setError(result.error || 'Authentication failed. Please try again.');
+        // Handle Signup
+        const result = await signup({ email, password });
+        if (result.success) {
+          // On successful signup, show a message and switch to login mode
+          setSignupSuccess(true);
+          setIsLogin(true);
+          setPassword(''); // Clear password fields
+          setConfirmPassword('');
+        } else {
+          setError(result.error || 'Signup failed. Please try again.');
+        }
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
@@ -103,10 +110,11 @@ const [password, setPassword] = useState('password');
   const handleModeSwitch = () => {
     setIsLogin(!isLogin);
     setError('');
+    setSignupSuccess(false);
     setPassword('');
     setConfirmPassword('');
   };
-
+  
   const features = [
     'Track expenses across multiple categories',
     'Generate detailed financial reports',
@@ -234,32 +242,23 @@ const [password, setPassword] = useState('password');
                 }
               </p>
             </div>
-
-            {/* Demo credentials - only show on login */}
-            {/* {isLogin && (
-              <div className={`mb-6 p-4 rounded-xl border-2 border-dashed ${
-                isDarkMode 
-                  ? 'bg-blue-900/20 border-blue-700/50' 
-                  : 'bg-blue-50 border-blue-200'
-              }`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertCircle className={`h-4 w-4 ${
-                    isDarkMode ? 'text-blue-400' : 'text-blue-600'
-                  }`} />
-                  <p className={`text-sm font-semibold ${
-                    isDarkMode ? 'text-blue-300' : 'text-blue-700'
-                  }`}>Demo Access</p>
-                </div>
-                <div className={`text-xs space-y-1 ${
-                  isDarkMode ? 'text-blue-400' : 'text-blue-600'
-                }`}>
-                  <p><strong>Email:</strong> user@example.com</p>
-                  <p><strong>Password:</strong> password</p>
-                </div>
-              </div>
-            )} */}
-
+            
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Signup Success Message */}
+              {signupSuccess && (
+                <div className={`p-4 rounded-xl border-l-4 ${
+                  isDarkMode
+                    ? 'bg-green-900/20 border-green-500 text-green-300'
+                    : 'bg-green-50 border-green-500 text-green-700'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />
+                    <p className="text-sm font-medium">Account created! Please sign in to continue.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Error Message */}
               {error && (
                 <div className={`p-4 rounded-xl border-l-4 ${
                   isDarkMode

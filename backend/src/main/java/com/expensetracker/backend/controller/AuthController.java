@@ -9,6 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import lombok.RequiredArgsConstructor;
 
+import java.util.Map; // Import the Map class
+
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -19,7 +21,11 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<?> signUp(@RequestBody SignUpRequest signUpRequest) {
         authService.signUp(signUpRequest);
-        return ResponseEntity.ok("User registered successfully");
+
+        // --- THIS LINE IS CHANGED ---
+        // We now return a Map object, which Spring will automatically convert to JSON.
+        // The frontend will receive: {"message": "User registered successfully"}
+        return ResponseEntity.ok(Map.of("message", "User registered successfully"));
     }
 
     @PostMapping("/login")

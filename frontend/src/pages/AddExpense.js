@@ -1,31 +1,45 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useTheme } from '../context/ThemeContext';
+import { useData } from '../context/DataContext'; // Import the useData hook
 import { ChevronDown, Camera, Upload, Plus, Edit2, Trash2, Eye, DollarSign, Calendar, Building, Tag, Loader2, Check, AlertCircle, Brain, CreditCard, Wallet, Building2, Smartphone, PiggyBank, Settings, TrendingUp, TrendingDown, BarChart3, PieChart, Filter, Search, Bell, MoreVertical } from 'lucide-react';
 import Tesseract from 'tesseract.js';
-import { useTheme } from '../context/ThemeContext';
+
+// Only import the API functions we need for mutations
+import {
+  addExpense,
+  updateExpense,
+  deleteExpense,
+  createSource,
+  updateSource,
+  deleteSource as apiDeleteSource
+} from '../api';
 
 const ExpenseTracker = () => {
-  const [expenses, setExpenses] = useState([]);
-  const [sources, setSources] = useState([]);
+  // Get shared data from the context
+  const { sources, expenses, loading: dataLoading, error: dataError, setError, fetchData } = useData();
+  
+
+  const { isDarkMode } = useTheme();
+  
+  // Local state for forms and UI only
+  const [isSubmitting, setIsSubmitting] = useState(false); // Local loading state for form submissions
   const [selectedSources, setSelectedSources] = useState(['all']);
   const [showSourceManager, setShowSourceManager] = useState(false);
   const [activeSourceView, setActiveSourceView] = useState('all');
-  const [sourceBalances, setSourceBalances] = useState({});
-  const { isDarkMode } = useTheme(); // 
-  // Existing state variables
-// Update the initial currentExpense state
-const [currentExpense, setCurrentExpense] = useState({
-  amount: '',
-  vendor: '',
-  date: new Date().toISOString().split('T')[0], // Set today's date as default
-  category: '',
-  description: '',
-  receiptImage: null,
-  sourceId: ''
-});
-
   
+  // Update the initial currentExpense state
+  const [currentExpense, setCurrentExpense] = useState({
+    amount: '',
+    vendor: '',
+    date: new Date().toISOString().split('T')[0], // Set today's date as default
+    category: '',
+    description: '',
+    receiptImage: null,
+    sourceId: ''
+  });
+
   const [currentSource, setCurrentSource] = useState({
-    id: '',
+    id: null,
     type: '',
     name: '',
     balance: '',
@@ -64,6 +78,7 @@ const [currentExpense, setCurrentExpense] = useState({
   
   // Perplexity API key
   const PERPLEXITY_API_KEY = process.env.REACT_APP_PERPLEXITY_API_KEY;
+
   
   const categories = [
     'Food & Drink',
@@ -93,104 +108,23 @@ const [currentExpense, setCurrentExpense] = useState({
     '#84CC16', '#F97316', '#EC4899', '#6366F1', '#14B8A6', '#F43F5E'
   ];
 
-  // Load data from localStorage on component mount
-  useEffect(() => {
-    const savedExpenses = localStorage.getItem('expenses');
-    const savedSources = localStorage.getItem('expenseSources');
-    const savedSourceBalances = localStorage.getItem('sourceBalances');
-    
-    if (savedExpenses) {
-      setExpenses(JSON.parse(savedExpenses));
-    }
-    
-    if (savedSources) {
-      const loadedSources = JSON.parse(savedSources);
-      setSources(loadedSources);
-      
-      // Initialize default sources if none exist
-      if (loadedSources.length === 0) {
-        initializeDefaultSources();
-      }
-    } else {
-      initializeDefaultSources();
-    }
-    
-    if (savedSourceBalances) {
-      setSourceBalances(JSON.parse(savedSourceBalances));
-    }
-  }, []);
 
-  // Initialize default sources
-  const initializeDefaultSources = () => {
-    const defaultSources = [
-      {
-        id: 'cash_wallet_001',
-        type: 'CASH',
-        name: 'Wallet Cash',
-        balance: 0,
-        initialBalance: 0,
-        isActive: true,
-        alertThreshold: 100,
-        preferredCategories: ['Food & Drink', 'Transportation'],
-        color: '#F59E0B',
-        description: 'Daily spending cash'
-      },
-      {
-        id: 'upi_primary_001',
-        type: 'UPI',
-        name: 'Primary UPI',
-        balance: 0,
-        initialBalance: 0,
-        isActive: true,
-        alertThreshold: 500,
-        preferredCategories: ['Shopping', 'Food & Drink'],
-        color: '#10B981',
-        description: 'Main UPI account'
-      }
-    ];
-    
-    setSources(defaultSources);
-    localStorage.setItem('expenseSources', JSON.stringify(defaultSources));
-  };
 
-  // Calculate source balances from transactions
-  const calculateSourceBalances = () => {
-    const balances = {};
-    
-    sources.forEach(source => {
-      balances[source.id] = source.initialBalance;
-    });
-    
-    expenses.forEach(expense => {
-      if (expense.sourceId && balances[expense.sourceId] !== undefined) {
-        balances[expense.sourceId] -= expense.amount;
-      }
-    });
-    
-    return balances;
-  };
-
-  // Update source balance calculations whenever expenses or sources change
-  useEffect(() => {
-    const newBalances = calculateSourceBalances();
-    setSourceBalances(newBalances);
-    localStorage.setItem('sourceBalances', JSON.stringify(newBalances));
-  }, [expenses, sources]);
-
+  // --- CLIENT-SIDE FILTERING & DERIVED STATE ---
   // Filter expenses based on selected sources
   const getFilteredExpenses = () => {
     if (selectedSources.includes('all')) {
       return expenses;
     }
-    return expenses.filter(expense => selectedSources.includes(expense.sourceId));
+    return expenses.filter(expense => selectedSources.includes(expense.sourceId.toString()));
   };
 
   // Get source-specific statistics
   const getSourceStats = (sourceId) => {
-    const sourceExpenses = expenses.filter(expense => expense.sourceId === sourceId);
+    const sourceExpenses = expenses.filter(expense => expense.sourceId.toString() === sourceId.toString());
     const totalSpent = sourceExpenses.reduce((sum, expense) => sum + expense.amount, 0);
     const thisMonth = sourceExpenses.filter(expense => {
-      const expenseDate = new Date(expense.date);
+      const expenseDate = new Date(expense.transactionDate);
       const now = new Date();
       return expenseDate.getMonth() === now.getMonth() && expenseDate.getFullYear() === now.getFullYear();
     });
@@ -212,9 +146,9 @@ const [currentExpense, setCurrentExpense] = useState({
 
   // Get balance status for UI styling
   const getBalanceStatus = (balance, threshold) => {
-    if (balance > threshold * 2) return { status: 'high', color: 'text-green-600', bgColor: 'bg-green-100' };
-    if (balance > threshold) return { status: 'medium', color: 'text-yellow-600', bgColor: 'bg-yellow-100' };
-    return { status: 'low', color: 'text-red-600', bgColor: 'bg-red-100' };
+    if (balance > threshold * 2) return { status: 'high', color: 'text-green-600', bgColor: 'bg-green-100 dark:bg-green-900/30 dark:text-green-400' };
+    if (balance > threshold) return { status: 'medium', color: 'text-yellow-600', bgColor: 'bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400' };
+    return { status: 'low', color: 'text-red-600', bgColor: 'bg-red-100 dark:bg-red-900/30 dark:text-red-400' };
   };
 
   // All existing OCR and AI processing functions remain unchanged
@@ -499,59 +433,58 @@ const [currentExpense, setCurrentExpense] = useState({
     return '';
   };
 
-const extractDateBasic = (text) => {
-  const correctedText = correctOCRErrors(text);
-  const lines = correctedText.split('\n');
-  
-  const datePatterns = [
-    /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/,
-    /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/,
-    /(\d{1,2}\s+\w{3,9}\s+\d{4})/i,
-    /(\w{3,9}\s+\d{1,2},?\s+\d{4})/i,
-    /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2})/,
-    /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})\s+\d{1,2}:\d{2}/,
-    /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})\s+\d{1,2}:\d{2}/
-  ];
-  
-  for (const line of lines) {
-    for (const pattern of datePatterns) {
-      const match = line.match(pattern);
-      if (match) {
-        const dateStr = match[1];
-        let parsedDate;
-        
-        try {
-          if (dateStr.includes('/') || dateStr.includes('-')) {
-            const parts = dateStr.split(/[\/\-]/);
-            if (parts.length === 3) {
-              if (parseInt(parts[0]) > 12) {
-                if (parseInt(parts[0]) > 31) {
-                  parsedDate = new Date(parts[0], parts[1] - 1, parts[2]);
-                } else {
-                  parsedDate = new Date(parts[2], parts[1] - 1, parts[0]);
-                }
-              } else {
-                parsedDate = new Date(parts[2], parts[0] - 1, parts[1]);
-              }
-            }
-          } else {
-            parsedDate = new Date(dateStr);
-          }
+  const extractDateBasic = (text) => {
+    const correctedText = correctOCRErrors(text);
+    const lines = correctedText.split('\n');
+    
+    const datePatterns = [
+      /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/,
+      /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/,
+      /(\d{1,2}\s+\w{3,9}\s+\d{4})/i,
+      /(\w{3,9}\s+\d{1,2},?\s+\d{4})/i,
+      /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2})/,
+      /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})\s+\d{1,2}:\d{2}/,
+      /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})\s+\d{1,2}:\d{2}/
+    ];
+    
+    for (const line of lines) {
+      for (const pattern of datePatterns) {
+        const match = line.match(pattern);
+        if (match) {
+          const dateStr = match[1];
+          let parsedDate;
           
-          if (!isNaN(parsedDate.getTime())) {
-            return parsedDate.toISOString().split('T')[0];
+          try {
+            if (dateStr.includes('/') || dateStr.includes('-')) {
+              const parts = dateStr.split(/[\/\-]/);
+              if (parts.length === 3) {
+                if (parseInt(parts[0]) > 12) {
+                  if (parseInt(parts[0]) > 31) {
+                    parsedDate = new Date(parts[0], parts[1] - 1, parts[2]);
+                  } else {
+                    parsedDate = new Date(parts[2], parts[1] - 1, parts[0]);
+                  }
+                } else {
+                  parsedDate = new Date(parts[2], parts[0] - 1, parts[1]);
+                }
+              }
+            } else {
+              parsedDate = new Date(dateStr);
+            }
+            
+            if (!isNaN(parsedDate.getTime())) {
+              return parsedDate.toISOString().split('T')[0];
+            }
+          } catch (error) {
+            continue;
           }
-        } catch (error) {
-          continue;
         }
       }
     }
-  }
-  
-  // Return today's date if no valid date found in receipt
-  return new Date().toISOString().split('T')[0];
-};
-
+    
+    // Return today's date if no valid date found in receipt
+    return new Date().toISOString().split('T')[0];
+  };
 
   const canMakeApiCall = () => {
     const now = Date.now();
@@ -623,7 +556,7 @@ Vendor:
 Date:
 - Support formats: MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD
 - Convert to YYYY-MM-DD format
-- Use current date (2025-06-12) if unclear or missing
+- Use current date (2025-06-19) if unclear or missing
 
 Category (use exactly one from this list):
 Food & Drink, Transportation, Shopping, Entertainment, Healthcare, Utilities, Travel, Education, Business, Other
@@ -640,7 +573,7 @@ RESPONSE FORMAT: Return ONLY valid JSON:
 {
   "vendor": "Standardized Business Name",
   "amount": 25.99,
-  "date": "2025-06-12", 
+  "date": "2025-06-19", 
   "category": "Food & Drink",
   "description": "Brief description of purchase (Items in purchase) (max 50 chars)",
   "confidence": 85,
@@ -942,162 +875,194 @@ Use your real-time search capabilities to verify business names and enhance cate
     }
   };
 
-const handleSourceSubmit = () => {
-  if (!currentSource.name || !currentSource.type) {
-    alert('Please fill in all required fields');
-    return;
-  }
+  // --- SOURCE CRUD OPERATIONS ---
+ // src/pages/AddExpense.js (or ExpenseTracker.js)
 
-  let updatedSources;
-  const addAmount = parseFloat(currentSource.initialBalance) || 0;
-  
-  if (isEditingSource) {
-    updatedSources = sources.map(source => 
-      source.id === editingSourceId 
-        ? { 
-            ...currentSource, 
-            initialBalance: source.initialBalance + addAmount // Add to existing balance
-          }
-        : source
-    );
-    setIsEditingSource(false);
-    setEditingSourceId(null);
-  } else {
-    const newSource = {
-      ...currentSource,
-      id: `${currentSource.type.toLowerCase()}_${Date.now()}`,
-      initialBalance: addAmount, // For new sources, start with the add amount (0 if empty)
-      balance: addAmount
-    };
-    updatedSources = [...sources, newSource];
-  }
-  
-  setSources(updatedSources);
-  localStorage.setItem('expenseSources', JSON.stringify(updatedSources));
-  
-  resetSourceForm();
+// --- SOURCE CRUD OPERATIONS ---
+// --- SOURCE CRUD OPERATIONS ---
+const handleSourceSubmit = async () => {
+    if (!currentSource.name || !currentSource.type) {
+        alert('Please fill in source name and type.');
+        return;
+    }
+
+    setIsSubmitting(true);
+    setError(null); // Clear global errors before a new submission
+    try {
+        if (isEditingSource) {
+            // When EDITING, we create a DTO that does NOT include initialBalance.
+            const sourceUpdateData = {
+                name: currentSource.name,
+                type: currentSource.type,
+                color: currentSource.color,
+                alertThreshold: parseFloat(currentSource.alertThreshold) || 0,
+                isActive: currentSource.isActive,
+                description: currentSource.description
+            };
+            await updateSource(editingSourceId, sourceUpdateData);
+
+        } else {
+            // When CREATING a NEW source, we include initialBalance.
+            const sourceCreateData = {
+                name: currentSource.name,
+                type: currentSource.type,
+                initialBalance: parseFloat(currentSource.initialBalance) || 0,
+                color: currentSource.color,
+                alertThreshold: parseFloat(currentSource.alertThreshold) || 0,
+                isActive: currentSource.isActive,
+                description: currentSource.description
+            };
+            await createSource(sourceCreateData);
+        }
+
+        await fetchData(); // This now updates the GLOBAL state
+        resetSourceForm();
+
+    } catch (err) {
+        setError(err.message || 'Failed to save source.');
+        console.error('Source submission error:', err);
+    } finally {
+        setIsSubmitting(false);
+    }
 };
-
 
 const resetSourceForm = () => {
-  setCurrentSource({
-    id: '',
-    type: '',
-    name: '',
-    balance: '',
-    initialBalance: '', // Keep empty for the add amount input
-    isActive: true,
-    alertThreshold: '',
-    preferredCategories: [],
-    color: sourceColors[Math.floor(Math.random() * sourceColors.length)],
-    description: ''
-  });
-  setShowSourceForm(false);
+    setCurrentSource({
+      id: null,
+      type: '',
+      name: '',
+      balance: '',
+      initialBalance: '',
+      isActive: true,
+      alertThreshold: '',
+      preferredCategories: [],
+      color: sourceColors[Math.floor(Math.random() * sourceColors.length)],
+      description: ''
+    });
+    setShowSourceForm(false);
+    setIsEditingSource(false);
+    setEditingSourceId(null);
+};
+
+ const editSource = (source) => {
+    setCurrentSource({
+      ...source,
+      initialBalance: source.initialBalance.toString() // Keep form fields as strings
+    });
+    setIsEditingSource(true);
+    setEditingSourceId(source.id);
+    setShowSourceForm(true);
 };
 
 
-const editSource = (source) => {
-  setCurrentSource({
-    ...source,
-    initialBalance: '', // Clear the add amount field when editing
-    alertThreshold: source.alertThreshold.toString()
-  });
-  setIsEditingSource(true);
-  setEditingSourceId(source.id);
-  setShowSourceForm(true);
-};
-
-
-  const deleteSource = (id) => {
-    if (sources.length <= 1) {
-      alert('You must have at least one source');
-      return;
+ const deleteSourceHandler = async (id) => {
+    if (!window.confirm("Are you sure? Deleting a source will also delete all its associated expenses.")) {
+        return;
     }
-    
-    const updatedSources = sources.filter(source => source.id !== id);
-    setSources(updatedSources);
-    localStorage.setItem('expenseSources', JSON.stringify(updatedSources));
-    
-    // Remove expenses associated with this source
-    const updatedExpenses = expenses.filter(expense => expense.sourceId !== id);
-    setExpenses(updatedExpenses);
-    localStorage.setItem('expenses', JSON.stringify(updatedExpenses));
-  };
+    setIsSubmitting(true);
+    setError(null);
+    try {
+        await apiDeleteSource(id);
+        await fetchData(); // Refresh data from server
+    } catch (err) {
+        setError(err.message || 'Failed to delete source.');
+        console.error('Delete source error:', err);
+    } finally {
+        setIsSubmitting(false);
+    }
+};
 
-  const handleSubmit = () => {
+  // --- EXPENSE CRUD OPERATIONS ---
+const handleSubmit = async () => {
     if (!currentExpense.amount || !currentExpense.vendor || !currentExpense.date || !currentExpense.category || !currentExpense.sourceId) {
       alert('Please fill in all required fields including payment source');
       return;
     }
-    
-    let updatedExpenses;
-    
-    if (isEditing) {
-      updatedExpenses = expenses.map(expense => 
-        expense.id === editingId 
-          ? { ...currentExpense, id: editingId, amount: parseFloat(currentExpense.amount) }
-          : expense
-      );
-      setIsEditing(false);
-      setEditingId(null);
-    } else {
-      const newExpense = {
-        ...currentExpense,
-        id: Date.now(),
-        amount: parseFloat(currentExpense.amount)
-      };
-      updatedExpenses = [newExpense, ...expenses];
+
+    // Prepare DTO-compliant data for the backend
+    const expenseData = {
+        sourceId: parseInt(currentExpense.sourceId, 10),
+        amount: parseFloat(currentExpense.amount),
+        vendor: currentExpense.vendor,
+        category: currentExpense.category,
+        description: currentExpense.description,
+        transactionDate: currentExpense.date // The backend expects 'transactionDate'
+    };
+
+    setIsSubmitting(true);
+    setError(null);
+    try {
+        if (isEditing) {
+            await updateExpense(editingId, expenseData);
+        } else {
+            await addExpense(expenseData);
+        }
+        await fetchData(); // Refresh data from the server
+        resetForm();
+    } catch (err) {
+        setError(err.message || 'Failed to save expense.');
+        console.error('Expense submission error:', err);
+    } finally {
+        setIsSubmitting(false);
     }
-    
-    localStorage.setItem('expenses', JSON.stringify(updatedExpenses));
-    setExpenses(updatedExpenses);
-    
-    window.dispatchEvent(new CustomEvent('expensesUpdated', { 
-      detail: updatedExpenses 
-    }));
-    
-    resetForm();
-  };
+};
   
 const resetForm = () => {
-  setCurrentExpense({
-    amount: '',
-    vendor: '',
-    date: new Date().toISOString().split('T')[0], // Reset to today's date
-    category: '',
-    description: '',
-    receiptImage: null,
-    sourceId: ''
-  });
-  setShowForm(false);
-  setSelectedImage(null);
-  setExtractedText('');
-  setAiCategorizedData(null);
-  setAiError('');
-  setAiSuccess(false);
-  setImageQualityWarning('');
-  if (fileInputRef.current) fileInputRef.current.value = '';
-  if (cameraInputRef.current) cameraInputRef.current.value = '';
+    setCurrentExpense({
+      amount: '',
+      vendor: '',
+      date: new Date().toISOString().split('T')[0], // Reset to today's date
+      category: '',
+      description: '',
+      receiptImage: null,
+      sourceId: ''
+    });
+    setShowForm(false);
+    setIsEditing(false);
+    setEditingId(null);
+    setSelectedImage(null);
+    setExtractedText('');
+    setAiCategorizedData(null);
+    setAiError('');
+    setAiSuccess(false);
+    setImageQualityWarning('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
 };
 
-  
-  const editExpense = (expense) => {
+const editExpense = (expense) => {
     setCurrentExpense({
       ...expense,
-      amount: expense.amount.toString()
+      amount: expense.amount.toString(),
+      date: expense.transactionDate // Use transactionDate from DTO
     });
     setIsEditing(true);
     setEditingId(expense.id);
     setShowForm(true);
-  };
+};
+
+const deleteExpenseHandler = async (id) => {
+    setIsSubmitting(true);
+    setError(null);
+    try {
+        await deleteExpense(id);
+        await fetchData(); // Refresh data from server
+    } catch (err) {
+        setError(err.message || 'Failed to delete expense.');
+        console.error('Delete expense error:', err);
+    } finally {
+        setIsSubmitting(false);
+    }
+};
   
-  const deleteExpense = (id) => {
-    const updatedExpenses = expenses.filter(expense => expense.id !== id);
-    setExpenses(updatedExpenses);
-    localStorage.setItem('expenses', JSON.stringify(updatedExpenses));
-  };
-  
-  const filteredExpenses = getFilteredExpenses();
+  const filteredExpenses = useMemo(() => {
+    let result = expenses;
+    if (!selectedSources.includes('all')) {
+        result = result.filter(expense => selectedSources.includes(expense.sourceId.toString()));
+    }
+    return result;
+  }, [expenses, selectedSources]);
+
   const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
   
   const expensesByCategory = filteredExpenses.reduce((acc, expense) => {
@@ -1105,59 +1070,84 @@ const resetForm = () => {
     return acc;
   }, {});
 
-  const totalSourceBalance = Object.values(sourceBalances).reduce((sum, balance) => sum + balance, 0);
-  const totalInitialBalance = sources.reduce((sum, source) => sum + source.initialBalance, 0);
+  const totalSourceBalance = sources.reduce((sum, source) => sum + source.currentBalance, 0);
 
   const getSourceTypeInfo = (type) => {
     return sourceTypes.find(st => st.id === type) || sourceTypes[0];
   };
 
   const getSourceById = (id) => {
-    return sources.find(source => source.id === id);
+    // Ensure comparison is consistent (e.g., string to string)
+    return sources.find(source => source.id.toString() === id.toString());
   };
 
+ // --- RENDER LOGIC ---
+// Use the global loading state for the initial page load
+// Use the properly renamed variables
+if (dataLoading) {
+    return (
+        <div className="flex justify-center items-center min-h-screen bg-gray-50 dark:bg-slate-900">
+            <Loader2 className="animate-spin h-10 w-10 text-blue-600" />
+        </div>
+    );
+}
+
+if (dataError) {
+    return (
+        <div className="flex flex-col justify-center items-center min-h-screen text-center p-4 bg-gray-50 dark:bg-slate-900">
+            <AlertCircle size={60} className="mx-auto text-red-500" />
+            <h2 className="mt-4 text-2xl font-semibold text-red-700 dark:text-red-400">An Error Occurred</h2>
+            <p className="mt-2 text-gray-500 dark:text-slate-400">{dataError}</p>
+            <button onClick={() => fetchData()} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                Retry
+            </button>
+        </div>
+    );
+}
+
+
+
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 font-sans">
       <div className="container mx-auto p-4 sm:p-6 lg:p-8">
         <main className="max-w-6xl mx-auto space-y-8">
           {/* ======================================================================= */}
           {/* ENHANCED HEADER WITH MULTI-SOURCE OVERVIEW                            */}
           {/* ======================================================================= */}
-          <section className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+          <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-sm">
             <div className="p-6">
               <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
                 <div className="flex items-center gap-4">
                   <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-lg flex items-center justify-center">
                     <span className="text-2xl font-bold">₹</span>
-
                   </div>
                   <div>
-                    <h1 className="text-3xl font-bold text-gray-900">
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-100">
                       ExpenseFlow - AI Powered Expense Tracker
                     </h1>
-                    <p className="text-gray-500 mt-1">
+                    <p className="text-gray-500 dark:text-slate-400 mt-1">
                       Enhanced OCR + Perplexity AI with source-based management
                     </p>
                   </div>
                 </div>
                 
                 <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center min-w-[140px]">
-                    <p className="text-sm font-medium text-blue-800">Total Balance</p>
-                    <p className="text-xl font-bold text-blue-600">
+                  <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4 text-center min-w-[140px]">
+                    <p className="text-sm font-medium text-blue-800 dark:text-blue-400">Total Balance</p>
+                    <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
                       {formatIndianCurrency(totalSourceBalance)}
                     </p>
-                    <p className="text-xs text-blue-500 mt-1">
+                    <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">
                       Across {sources.length} sources
                     </p>
                   </div>
                   
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center min-w-[140px]">
-                    <p className="text-sm font-medium text-red-800">Total Spent</p>
-                    <p className="text-xl font-bold text-red-600">
+                  <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg p-4 text-center min-w-[140px]">
+                    <p className="text-sm font-medium text-red-800 dark:text-red-400">Total Spent</p>
+                    <p className="text-xl font-bold text-red-600 dark:text-red-400">
                       {formatIndianCurrency(totalExpenses)}
                     </p>
-                    <p className="text-xs text-red-500 mt-1">
+                    <p className="text-xs text-red-500 dark:text-red-400 mt-1">
                       From selected sources
                     </p>
                   </div>
@@ -1169,17 +1159,17 @@ const resetForm = () => {
           {/* ======================================================================= */}
           {/* SOURCE SELECTION TOGGLE BAR                                            */}
           {/* ======================================================================= */}
-          <section className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+          <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-sm">
             <div className="p-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
-                <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-200 flex items-center gap-2">
                   <Filter size={20} />
                   Payment Sources
                 </h2>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setShowSourceManager(!showSourceManager)}
-                    className="inline-flex items-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium"
+                    className="inline-flex items-center gap-2 px-3 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors text-sm font-medium"
                   >
                     <Settings size={16} />
                     Manage Sources
@@ -1193,8 +1183,8 @@ const resetForm = () => {
                   onClick={() => setSelectedSources(['all'])}
                   className={`px-4 py-2 rounded-full border transition-all ${
                     selectedSources.includes('all')
-                      ? 'bg-gray-800 text-white border-gray-800'
-                      : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+                      ? 'bg-gray-800 dark:bg-slate-600 text-white border-gray-800 dark:border-slate-600'
+                      : 'bg-white dark:bg-slate-700 text-gray-600 dark:text-slate-300 border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500'
                   }`}
                 >
                   All Sources ({sources.length})
@@ -1203,33 +1193,33 @@ const resetForm = () => {
                 {sources.map(source => {
                   const typeInfo = getSourceTypeInfo(source.type);
                   const Icon = typeInfo.icon;
-                  const balance = sourceBalances[source.id] || 0;
+                  const balance = source.currentBalance || 0;
                   const balanceStatus = getBalanceStatus(balance, source.alertThreshold);
                   
                   return (
                     <button
                       key={source.id}
                       onClick={() => {
-                        if (selectedSources.includes(source.id)) {
-                          setSelectedSources(selectedSources.filter(id => id !== source.id));
+                        if (selectedSources.includes(source.id.toString())) {
+                          setSelectedSources(selectedSources.filter(id => id !== source.id.toString()));
                         } else {
-                          setSelectedSources([...selectedSources.filter(id => id !== 'all'), source.id]);
+                          setSelectedSources([...selectedSources.filter(id => id !== 'all'), source.id.toString()]);
                         }
                       }}
                       className={`px-4 py-2 rounded-full border transition-all flex items-center gap-2 ${
-                        selectedSources.includes(source.id)
-                          ? 'border-gray-600 text-white'
-                          : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+                        selectedSources.includes(source.id.toString())
+                          ? 'border-gray-600 dark:border-slate-500 text-white'
+                          : 'bg-white dark:bg-slate-700 text-gray-600 dark:text-slate-300 border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500'
                       }`}
                       style={{
-                        backgroundColor: selectedSources.includes(source.id) ? source.color : 'white',
-                        borderColor: selectedSources.includes(source.id) ? source.color : undefined
+                        backgroundColor: selectedSources.includes(source.id.toString()) ? source.color : undefined,
+                        borderColor: selectedSources.includes(source.id.toString()) ? source.color : undefined
                       }}
                     >
                       <Icon size={16} />
                       <span className="font-medium">{source.name}</span>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        selectedSources.includes(source.id) 
+                        selectedSources.includes(source.id.toString()) 
                           ? 'bg-white bg-opacity-20 text-white' 
                           : balanceStatus.bgColor + ' ' + balanceStatus.color
                       }`}>
@@ -1242,24 +1232,25 @@ const resetForm = () => {
 
               {/* Source Quick Stats */}
               {!selectedSources.includes('all') && selectedSources.length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-800 mb-3">Selected Sources Overview</h3>
+                <div className="bg-gray-50 dark:bg-slate-700 rounded-lg p-4">
+                  <h3 className="font-medium text-gray-800 dark:text-slate-200 mb-3">Selected Sources Overview</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {selectedSources.map(sourceId => {
                       const source = getSourceById(sourceId);
+                      if (!source) return null;
                       const stats = getSourceStats(sourceId);
-                      const balance = sourceBalances[sourceId] || 0;
+                      const balance = source.currentBalance || 0;
                       const balanceStatus = getBalanceStatus(balance, source.alertThreshold);
                       
                       return (
-                        <div key={sourceId} className="bg-white rounded-lg p-3 border">
+                        <div key={sourceId} className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-gray-200 dark:border-slate-600">
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium text-gray-800 truncate">{source.name}</h4>
+                            <h4 className="font-medium text-gray-800 dark:text-slate-200 truncate">{source.name}</h4>
                             <span className={`text-xs px-2 py-1 rounded-full ${balanceStatus.bgColor} ${balanceStatus.color}`}>
                               {formatIndianCurrency(balance)}
                             </span>
                           </div>
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-gray-600 dark:text-slate-400">
                             <p>Transactions: {stats.totalTransactions}</p>
                             <p>This Month: {formatIndianCurrency(stats.monthlySpent)}</p>
                           </div>
@@ -1276,45 +1267,44 @@ const resetForm = () => {
           {/* SOURCE MANAGER (Conditional)                                           */}
           {/* ======================================================================= */}
           {showSourceManager && (
-            <section className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+            <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-sm">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
-  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-    <Settings size={20} />
-    Payment Methods
-  </h2>
-  <div className="flex items-center gap-3">
-    <button
-      onClick={() => setShowSourceForm(true)}
-      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-    >
-      <Plus size={16} />
-      Add Source
-    </button>
-    <button
-      onClick={() => setShowSourceManager(false)}
-      className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-    >
-      Done
-    </button>
-  </div>
-</div>
-
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100 flex items-center gap-2">
+                    <Settings size={20} />
+                    Payment Methods
+                  </h2>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setShowSourceForm(true)}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <Plus size={16} />
+                      Add Source
+                    </button>
+                    <button
+                      onClick={() => setShowSourceManager(false)}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
 
                 {/* Source Form */}
                 {showSourceForm && (
-                  <div className="bg-gray-50 rounded-lg p-6 mb-6">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                  <div className="bg-gray-50 dark:bg-slate-700 rounded-lg p-6 mb-6">
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-200 mb-4">
                       {isEditingSource ? 'Edit Source' : 'Add New Source'}
                     </h3>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Source Type *</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Source Type *</label>
                         <select
                           value={currentSource.type}
                           onChange={(e) => setCurrentSource({...currentSource, type: e.target.value})}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full p-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-slate-100"
                         >
                           <option value="">Select type</option>
                           {sourceTypes.map(type => (
@@ -1322,88 +1312,73 @@ const resetForm = () => {
                           ))}
                         </select>
                         {currentSource.type && (
-                          <p className="text-sm text-gray-500 mt-1">
+                          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
                             {getSourceTypeInfo(currentSource.type).description}
                           </p>
                         )}
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Source Name *</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Source Name *</label>
                         <input
                           type="text"
                           value={currentSource.name}
                           onChange={(e) => setCurrentSource({...currentSource, name: e.target.value})}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full p-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-slate-100"
                           placeholder="e.g., PhonePe - Personal, SBI Savings"
                         />
                       </div>
                       
-<div>
-  <label className="block text-sm font-medium text-gray-700 mb-2">Add Amount</label>
-  <input
-    type="number"
-    step="0.01"
-    value={currentSource.initialBalance}
-    onChange={(e) => setCurrentSource({...currentSource, initialBalance: e.target.value})}
-    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-    placeholder="Amount to add (0.00)"
-  />
-  <p className="text-sm text-gray-500 mt-1">
-    {isEditingSource 
-      ? "Amount to add to current balance" 
-      : "Starting amount for new source (0 by default)"
-    }
-  </p>
-</div>
-{isEditingSource && (
-  <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-    <p className="text-sm font-medium text-blue-800">
-      Current Balance: {formatIndianCurrency(
-        sources.find(s => s.id === editingSourceId)?.initialBalance || 0
-      )}
-    </p>
-    <p className="text-xs text-blue-600">
-      New balance will be: {formatIndianCurrency(
-        (sources.find(s => s.id === editingSourceId)?.initialBalance || 0) + 
-        (parseFloat(currentSource.initialBalance) || 0)
-      )}
-    </p>
-  </div>
-)}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Initial Balance</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={currentSource.initialBalance}
+                          onChange={(e) => setCurrentSource({...currentSource, initialBalance: e.target.value})}
+                          className="w-full p-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-slate-100"
+                          placeholder="Starting balance (0.00)"
+                        />
+                        <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
+                          {isEditingSource 
+                            ? "Update the initial balance" 
+                            : "Starting amount for new source (0 by default)"
+                          }
+                        </p>
+                      </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Low Balance Alert Threshold</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Low Balance Alert Threshold</label>
                         <input
                           type="number"
                           step="0.01"
                           value={currentSource.alertThreshold}
                           onChange={(e) => setCurrentSource({...currentSource, alertThreshold: e.target.value})}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full p-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-slate-100"
                           placeholder="100.00"
                         />
                       </div>
                       
                       <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Description</label>
                         <input
                           type="text"
                           value={currentSource.description}
                           onChange={(e) => setCurrentSource({...currentSource, description: e.target.value})}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full p-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-slate-100"
                           placeholder="Optional description"
                         />
                       </div>
                       
                       <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Color Theme</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Color Theme</label>
                         <div className="flex flex-wrap gap-2">
                           {sourceColors.map(color => (
                             <button
                               key={color}
                               onClick={() => setCurrentSource({...currentSource, color})}
                               className={`w-8 h-8 rounded-full border-2 ${
-                                currentSource.color === color ? 'border-gray-800' : 'border-gray-300'
+                                currentSource.color === color ? 'border-gray-800 dark:border-slate-300' : 'border-gray-300 dark:border-slate-600'
                               }`}
                               style={{ backgroundColor: color }}
                             />
@@ -1414,14 +1389,15 @@ const resetForm = () => {
                     
                     <div className="flex items-center gap-3">
                       <button
-                        onClick={handleSourceSubmit}
-                        className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                      >
-                        {isEditingSource ? 'Update Source' : 'Add Source'}
-                      </button>
+    onClick={handleSourceSubmit}
+    disabled={isSubmitting}
+    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+>
+    {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : (isEditingSource ? 'Update Source' : 'Add Source')}
+</button>
                       <button
                         onClick={resetSourceForm}
-                        className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+                        className="px-6 py-2 bg-gray-200 dark:bg-slate-600 text-gray-800 dark:text-slate-200 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-500 transition-colors"
                       >
                         Cancel
                       </button>
@@ -1431,101 +1407,108 @@ const resetForm = () => {
 
                 {/* Sources List */}
                 <div className="space-y-4">
-                  {sources.map(source => {
-                    const typeInfo = getSourceTypeInfo(source.type);
-                    const Icon = typeInfo.icon;
-                    const balance = sourceBalances[source.id] || 0;
-                    const stats = getSourceStats(source.id);
-                    const balanceStatus = getBalanceStatus(balance, source.alertThreshold);
-                    
-                    return (
-                      <div key={source.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-4 flex-1">
-                            <div 
-                              className="w-12 h-12 rounded-lg flex items-center justify-center text-white"
-                              style={{ backgroundColor: source.color }}
-                            >
-                              <Icon size={20} />
-                            </div>
-                            
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-1">
-                                <h3 className="font-semibold text-gray-800">{source.name}</h3>
-                                <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
-                                  {typeInfo.name}
-                                </span>
-                                {!source.isActive && (
-                                  <span className="text-xs px-2 py-1 bg-red-100 text-red-600 rounded-full">
-                                    Inactive
-                                  </span>
-                                )}
-                              </div>
-                              
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                <div>
-                                  <p className="text-gray-500">Current Balance</p>
-                                  <p className={`font-semibold ${balanceStatus.color}`}>
-                                    {formatIndianCurrency(balance)}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-gray-500">Initial Balance</p>
-                                  <p className="font-medium text-gray-700">
-                                    {formatIndianCurrency(source.initialBalance)}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-gray-500">Transactions</p>
-                                  <p className="font-medium text-gray-700">{stats.totalTransactions}</p>
-                                </div>
-                                <div>
-                                  <p className="text-gray-500">Monthly Spent</p>
-                                  <p className="font-medium text-gray-700">
-                                    {formatIndianCurrency(stats.monthlySpent)}
-                                  </p>
-                                </div>
-                              </div>
-                              
-                              {source.description && (
-                                <p className="text-sm text-gray-600 mt-2">{source.description}</p>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-2 ml-4">
-                            <button
-                              onClick={() => editSource(source)}
-                              className="p-2 text-blue-600 rounded-md hover:bg-blue-100 transition-colors"
-                              title="Edit source"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            <button
-                              onClick={() => deleteSource(source.id)}
-                              className="p-2 text-red-600 rounded-md hover:bg-red-100 transition-colors"
-                              title="Delete source"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </div>
-                        
-                        {/* Low Balance Warning */}
-                        {balance < source.alertThreshold && (
-                          <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                            <div className="flex items-center gap-2 text-orange-700">
-                              <AlertCircle size={16} />
-                              <span className="text-sm font-medium">
-                                Low balance warning: Below ₹{source.alertThreshold} threshold
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+  {sources.map(source => {
+    const typeInfo = getSourceTypeInfo(source.type);
+    const Icon = typeInfo.icon;
+    const balance = source.currentBalance || 0;
+    const stats = getSourceStats(source.id);
+    const balanceStatus = getBalanceStatus(balance, source.alertThreshold);
+
+    return (
+      <div key={source.id} className="border border-gray-200 dark:border-slate-600 rounded-lg p-4 hover:shadow-md transition-shadow">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-4 flex-1">
+            <div 
+              className="w-12 h-12 rounded-lg flex items-center justify-center text-white"
+              style={{ backgroundColor: source.color }}
+            >
+              <Icon size={20} />
+            </div>
+            
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-1">
+                <h3 className="font-semibold text-gray-800 dark:text-slate-200">{source.name}</h3>
+                <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 rounded-full">
+                  {typeInfo.name}
+                </span>
+                {!source.isActive && (
+                  <span className="text-xs px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full">
+                    Inactive
+                  </span>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-500 dark:text-slate-400">Current Balance</p>
+                  <p className={`font-semibold ${balanceStatus.color}`}>
+                    {formatIndianCurrency(balance)}
+                  </p>
                 </div>
+                <div>
+                  <p className="text-gray-500 dark:text-slate-400">Initial Balance</p>
+                  <p className="font-medium text-gray-700 dark:text-slate-200">
+                    {formatIndianCurrency(source.initialBalance)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-slate-400">This Month</p>
+                  <p className="font-medium text-gray-700 dark:text-slate-200">
+                    {formatIndianCurrency(stats.monthlySpent)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-slate-400">Transactions</p>
+                  <p className="font-medium text-gray-700 dark:text-slate-200">{stats.totalTransactions}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-slate-400">Total Spent</p>
+                  <p className="font-medium text-gray-700 dark:text-slate-200">
+                    {formatIndianCurrency(stats.totalSpent)}
+                  </p>
+                </div>
+              </div>
+              
+              {source.description && (
+                <p className="text-sm text-gray-600 dark:text-slate-400 mt-2">{source.description}</p>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2 ml-4">
+            <button
+              onClick={() => editSource(source)}
+              className="p-2 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+              title="Edit source"
+            >
+              <Edit2 size={16} />
+            </button>
+            <button
+              onClick={() => deleteSourceHandler(source.id)}
+              className="p-2 text-red-600 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+              title="Delete source"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        </div>
+        
+        {/* Low Balance Warning */}
+        {source.currentBalance < source.alertThreshold && (
+          <div className="mt-3 p-3 bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-lg">
+            <div className="flex items-center gap-2 text-orange-700 dark:text-orange-400">
+              <AlertCircle size={16} />
+              <span className="text-sm font-medium">
+                Low balance warning: Below ₹{source.alertThreshold} threshold
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  })}
+</div>
+
               </div>
             </section>
           )}
@@ -1549,25 +1532,23 @@ const resetForm = () => {
           {/* ADD/EDIT EXPENSE FORM (Enhanced with Source Selection)                */}
           {/* ======================================================================= */}
           {showForm && (
-            <section className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+            <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-sm">
               <div className="p-6 sm:p-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-slate-100 mb-6">
                   {isEditing ? 'Edit Expense' : 'Add New Expense'}
                 </h2>
                 
                 {/* OCR & AI Processing Sub-Section */}
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-5 mb-6">
-                  <h3 className="font-bold text-lg text-gray-800 mb-4 flex items-center gap-3">
+                <div className="bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl p-5 mb-6">
+                  <h3 className="font-bold text-lg text-gray-800 dark:text-slate-200 mb-4 flex items-center gap-3">
                     <Camera size={22} className="text-blue-600"/>
                     Enhanced Receipt Processing
                   </h3>
 
-
-                  
                   {/* Rate Limit Warning */}
                   {apiCallCount > 10 && (
-                    <div className="mb-4 p-3 bg-orange-100 border border-orange-300 rounded-lg">
-                      <div className="flex items-center gap-3 text-sm text-orange-700">
+                    <div className="mb-4 p-3 bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700 rounded-lg">
+                      <div className="flex items-center gap-3 text-sm text-orange-700 dark:text-orange-400">
                         <AlertCircle size={20} />
                         <span>Approaching API rate limit ({apiCallCount}/15 calls this minute). Basic parsing will be used if limit is reached.</span>
                       </div>
@@ -1579,7 +1560,7 @@ const resetForm = () => {
                     <button
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isProcessingOCR || isProcessingAI}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-800 font-semibold rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 font-semibold rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Upload size={18} />
                       Choose File
@@ -1587,7 +1568,7 @@ const resetForm = () => {
                     <button
                       onClick={() => cameraInputRef.current?.click()}
                       disabled={isProcessingOCR || isProcessingAI}
-                      className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 font-semibold rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center gap-2 px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 font-semibold rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Camera size={18} />
                       Take Photo
@@ -1601,19 +1582,19 @@ const resetForm = () => {
                   {/* Status & Error Messages */}
                   <div className="space-y-3">
                     {imageQualityWarning && (
-                      <div className="flex items-center gap-2 text-orange-600 font-medium text-sm">
+                      <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 font-medium text-sm">
                         <AlertCircle size={16} />
                         {imageQualityWarning}
                       </div>
                     )}
                     {isProcessingOCR && (
                       <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-blue-600 font-medium">
+                        <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-medium">
                           <Loader2 size={16} className="animate-spin" />
                           Processing with enhanced OCR... {ocrProgress > 0 && `${ocrProgress}%`}
                         </div>
                         {ocrProgress > 0 && (
-                          <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <div className="w-full bg-gray-200 dark:bg-slate-600 rounded-full h-2.5">
                             <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${ocrProgress}%` }}></div>
                           </div>
                         )}
@@ -1621,35 +1602,35 @@ const resetForm = () => {
                     )}
                     {isProcessingAI && (
                       <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-purple-600 font-medium">
+                        <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 font-medium">
                           <Brain size={16} className="animate-pulse" />
                           Perplexity AI analyzing with real-time verification...
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div className="w-full bg-gray-200 dark:bg-slate-600 rounded-full h-2.5">
                           <div className="bg-purple-600 h-2.5 rounded-full animate-pulse"></div>
                         </div>
                       </div>
                     )}
                     {ocrSuccess && (
-                      <div className="flex items-center gap-2 text-green-600 font-medium text-sm">
+                      <div className="flex items-center gap-2 text-green-600 dark:text-green-400 font-medium text-sm">
                         <Check size={16} />
                         Receipt processed successfully! Form auto-filled with extracted data.
                       </div>
                     )}
                     {aiSuccess && (
-                      <div className="flex items-center gap-2 text-purple-600 font-medium text-sm">
+                      <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 font-medium text-sm">
                         <Brain size={16} />
                         Perplexity AI enhancement completed! Data verified and categorized.
                       </div>
                     )}
                     {ocrError && (
-                      <div className="flex items-center gap-2 text-red-600 font-medium text-sm">
+                      <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-medium text-sm">
                         <AlertCircle size={16} />
                         {ocrError}
                       </div>
                     )}
                     {aiError && (
-                      <div className="flex items-center gap-2 text-orange-600 font-medium text-sm">
+                      <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 font-medium text-sm">
                         <AlertCircle size={16} />
                         {aiError}
                       </div>
@@ -1659,44 +1640,44 @@ const resetForm = () => {
                   {/* Image Preview */}
                   {selectedImage && (
                     <div className="mt-4">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-2">Receipt Preview:</h4>
+                      <h4 className="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2">Receipt Preview:</h4>
                       <img 
                         src={selectedImage} 
                         alt="Receipt preview" 
-                        className="max-w-full sm:max-w-sm max-h-56 object-contain rounded-lg border border-gray-300 p-1"
+                        className="max-w-full sm:max-w-sm max-h-56 object-contain rounded-lg border border-gray-300 dark:border-slate-600 p-1"
                       />
                     </div>
                   )}
 
                   {/* AI Analysis Results */}
                   {aiCategorizedData && (
-                    <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                      <h4 className="font-semibold text-purple-800 mb-2 flex items-center gap-2">
+                    <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 rounded-lg">
+                      <h4 className="font-semibold text-purple-800 dark:text-purple-400 mb-2 flex items-center gap-2">
                         <Brain size={16} />
                         AI Analysis Results (Confidence: {aiCategorizedData.confidence}%)
                       </h4>
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
-                          <span className="text-purple-600 font-medium">Vendor:</span>
-                          <span className="ml-2 text-gray-700">{aiCategorizedData.vendor}</span>
+                          <span className="text-purple-600 dark:text-purple-400 font-medium">Vendor:</span>
+                          <span className="ml-2 text-gray-700 dark:text-slate-300">{aiCategorizedData.vendor}</span>
                         </div>
                         <div>
-                          <span className="text-purple-600 font-medium">Amount:</span>
-                          <span className="ml-2 text-gray-700">{formatIndianCurrency(aiCategorizedData.amount)}</span>
+                          <span className="text-purple-600 dark:text-purple-400 font-medium">Amount:</span>
+                          <span className="ml-2 text-gray-700 dark:text-slate-300">{formatIndianCurrency(aiCategorizedData.amount)}</span>
                         </div>
                         <div>
-                          <span className="text-purple-600 font-medium">Category:</span>
-                          <span className="ml-2 text-gray-700">{aiCategorizedData.category}</span>
+                          <span className="text-purple-600 dark:text-purple-400 font-medium">Category:</span>
+                          <span className="ml-2 text-gray-700 dark:text-slate-300">{aiCategorizedData.category}</span>
                         </div>
                         <div>
-                          <span className="text-purple-600 font-medium">Parsed by:</span>
-                          <span className="ml-2 text-gray-700">{aiCategorizedData.parsedBy}</span>
+                          <span className="text-purple-600 dark:text-purple-400 font-medium">Parsed by:</span>
+                          <span className="ml-2 text-gray-700 dark:text-slate-300">{aiCategorizedData.parsedBy}</span>
                         </div>
                       </div>
                       {aiCategorizedData.reasoning && (
                         <div className="mt-2">
-                          <span className="text-purple-600 font-medium text-sm">Reasoning:</span>
-                          <p className="text-xs text-gray-600 mt-1">{aiCategorizedData.reasoning}</p>
+                          <span className="text-purple-600 dark:text-purple-400 font-medium text-sm">Reasoning:</span>
+                          <p className="text-xs text-gray-600 dark:text-slate-400 mt-1">{aiCategorizedData.reasoning}</p>
                         </div>
                       )}
                     </div>
@@ -1706,54 +1687,83 @@ const resetForm = () => {
                 {/* Enhanced Manual Entry Form Fields with Source Selection */}
                 <div className="space-y-5">
                   {/* Payment Source Selection - Prominent Placement */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <label htmlFor="source" className="block text-sm font-medium text-blue-800 mb-3">
+                  <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+                    <label htmlFor="source" className="block text-sm font-medium text-blue-800 dark:text-blue-400 mb-3">
                       Payment Source * (Select where this expense was paid from)
                     </label>
-                    <select
-                      id="source"
-                      value={currentExpense.sourceId}
-                      onChange={(e) => setCurrentExpense({...currentExpense, sourceId: e.target.value})}
-                      className="w-full p-3 border border-blue-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
-                      required
-                    >
-                      <option value="">Select payment source</option>
-                      {sources.filter(source => source.isActive).map(source => {
-                        const typeInfo = getSourceTypeInfo(source.type);
-                        const Icon = typeInfo.icon;
-                        const balance = sourceBalances[source.id] || 0;
-                        const balanceStatus = getBalanceStatus(balance, source.alertThreshold);
-                        
-                        return (
-                          <option key={source.id} value={source.id}>
-                            {source.name} - {formatIndianCurrency(balance)} 
-                            {balance < source.alertThreshold ? ' (Low Balance!)' : ''}
-                          </option>
-                        );
-                      })}
-                    </select>
+                  <select
+  id="source"
+  value={currentExpense.sourceId}
+  onChange={(e) => setCurrentExpense({...currentExpense, sourceId: e.target.value})}
+  className="w-full p-3 border border-blue-300 dark:border-blue-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100"
+  required
+>
+  <option value="">Select payment source</option>
+  {/* Show all sources without active/inactive filtering */}
+  {sources && sources.length > 0 ? (
+    sources.map(source => {
+      const balance = source.currentBalance || 0;
+      const balanceWarning = balance < (source.alertThreshold || 0) ? ' (Low Balance!)' : '';
+      
+      return (
+        <option key={source.id} value={source.id}>
+          {source.name} - {formatIndianCurrency(balance)}{balanceWarning}
+        </option>
+      );
+    })
+  ) : (
+    <option disabled>
+      {dataLoading ? 'Loading sources...' : 'No payment sources available'}
+    </option>
+  )}
+</select>
+
+{/* Show loading state */}
+{dataLoading && (
+  <p className="text-sm text-blue-600 dark:text-blue-400 mt-2">
+    Loading payment sources...
+  </p>
+)}
+
+{/* Show error if sources failed to load */}
+{dataError && (
+  <p className="text-sm text-red-600 dark:text-red-400 mt-2">
+    Failed to load payment sources: {dataError}
+  </p>
+)}
+
+{/* Show message if no sources exist */}
+{!dataLoading && !dataError && (!sources || sources.length === 0) && (
+  <p className="text-sm text-orange-600 dark:text-orange-400 mt-2">
+    No payment sources found. Please create a payment source first.
+  </p>
+)}
+
+{/* Show warning if selected source is inactive */}
+
+
                     
                     {/* Source Balance Preview */}
                     {currentExpense.sourceId && (
-                      <div className="mt-3 p-3 bg-white rounded-lg border">
+                      <div className="mt-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-600">
                         {(() => {
                           const selectedSource = getSourceById(currentExpense.sourceId);
-                          const balance = sourceBalances[currentExpense.sourceId] || 0;
+                          const balance = selectedSource?.currentBalance || 0;
                           const balanceStatus = getBalanceStatus(balance, selectedSource?.alertThreshold || 0);
                           const newBalance = balance - (parseFloat(currentExpense.amount) || 0);
                           
                           return (
                             <div className="flex items-center justify-between">
                               <div>
-                                <p className="text-sm font-medium text-gray-700">Current Balance:</p>
+                                <p className="text-sm font-medium text-gray-700 dark:text-slate-300">Current Balance:</p>
                                 <p className={`text-lg font-bold ${balanceStatus.color}`}>
                                   {formatIndianCurrency(balance)}
                                 </p>
                               </div>
                               {currentExpense.amount && (
                                 <div className="text-right">
-                                  <p className="text-sm font-medium text-gray-700">After Transaction:</p>
-                                  <p className={`text-lg font-bold ${newBalance < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                  <p className="text-sm font-medium text-gray-700 dark:text-slate-300">After Transaction:</p>
+                                  <p className={`text-lg font-bold ${newBalance < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
                                     {formatIndianCurrency(newBalance)}
                                   </p>
                                 </div>
@@ -1767,14 +1777,14 @@ const resetForm = () => {
                     {/* Low Balance Warnings */}
                     {currentExpense.sourceId && (() => {
                       const selectedSource = getSourceById(currentExpense.sourceId);
-                      const balance = sourceBalances[currentExpense.sourceId] || 0;
+                      const balance = selectedSource?.currentBalance || 0;
                       const amount = parseFloat(currentExpense.amount) || 0;
                       const newBalance = balance - amount;
                       
                       if (amount > balance) {
                         return (
-                          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                            <div className="flex items-center gap-2 text-red-700">
+                          <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg">
+                            <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
                               <AlertCircle size={16} />
                               <span className="text-sm font-medium">
                                 Insufficient balance! This transaction exceeds available funds by {formatIndianCurrency(amount - balance)}
@@ -1784,8 +1794,8 @@ const resetForm = () => {
                         );
                       } else if (newBalance < selectedSource?.alertThreshold) {
                         return (
-                          <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                            <div className="flex items-center gap-2 text-orange-700">
+                          <div className="mt-3 p-3 bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-lg">
+                            <div className="flex items-center gap-2 text-orange-700 dark:text-orange-400">
                               <AlertCircle size={16} />
                               <span className="text-sm font-medium">
                                 Warning: This transaction will bring your balance below the alert threshold of {formatIndianCurrency(selectedSource.alertThreshold)}
@@ -1799,48 +1809,48 @@ const resetForm = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                     <div>
-                      <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
+                      <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Amount *</label>
                       <input
                         id="amount"
                         type="number"
                         step="0.01"
                         value={currentExpense.amount}
                         onChange={(e) => setCurrentExpense({...currentExpense, amount: e.target.value})}
-                        className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        className="w-full p-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-900 dark:text-slate-100"
                         placeholder="0.00"
                         required
                       />
                     </div>
                     <div>
-                      <label htmlFor="vendor" className="block text-sm font-medium text-gray-700 mb-1">Vendor *</label>
+                      <label htmlFor="vendor" className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Vendor *</label>
                       <input
                         id="vendor"
                         type="text"
                         value={currentExpense.vendor}
                         onChange={(e) => setCurrentExpense({...currentExpense, vendor: e.target.value})}
-                        className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        className="w-full p-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-900 dark:text-slate-100"
                         placeholder="e.g., Starbucks, Amazon"
                         required
                       />
                     </div>
                     <div>
-                      <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                      <label htmlFor="date" className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Date *</label>
                       <input
                         id="date"
                         type="date"
                         value={currentExpense.date}
                         onChange={(e) => setCurrentExpense({...currentExpense, date: e.target.value})}
-                        className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        className="w-full p-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-900 dark:text-slate-100"
                         required
                       />
                     </div>
                     <div>
-                      <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                      <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Category *</label>
                       <select
                         id="category"
                         value={currentExpense.category}
                         onChange={(e) => setCurrentExpense({...currentExpense, category: e.target.value})}
-                        className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        className="w-full p-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-900 dark:text-slate-100"
                         required
                       >
                         <option value="">Select category</option>
@@ -1851,26 +1861,27 @@ const resetForm = () => {
                     </div>
                   </div>
                   <div>
-                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Description</label>
                     <input
                       id="description"
                       type="text"
                       value={currentExpense.description}
                       onChange={(e) => setCurrentExpense({...currentExpense, description: e.target.value})}
-                      className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full p-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-900 dark:text-slate-100"
                       placeholder="Optional notes, e.g., 'Lunch with client'"
                     />
                   </div>
-                  <div className="flex items-center gap-3 pt-4 border-t border-gray-200 mt-6">
+                  <div className="flex items-center gap-3 pt-4 border-t border-gray-200 dark:border-slate-600 mt-6">
                     <button
-                      onClick={handleSubmit}
-                      className="px-6 py-2.5 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all"
-                    >
-                      {isEditing ? 'Update Expense' : 'Add Expense'}
-                    </button>
+    onClick={handleSubmit}
+    disabled={isSubmitting}
+    className="px-6 py-2.5 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+>
+    {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : (isEditing ? 'Update Expense' : 'Add Expense')}
+</button>
                     <button
                       onClick={resetForm}
-                      className="px-6 py-2.5 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors"
+                      className="px-6 py-2.5 bg-gray-200 dark:bg-slate-600 text-gray-800 dark:text-slate-200 font-semibold rounded-lg hover:bg-gray-300 dark:hover:bg-slate-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors"
                     >
                       Cancel
                     </button>
@@ -1884,15 +1895,15 @@ const resetForm = () => {
           {/* SOURCE-SPECIFIC DASHBOARD (Individual View)                           */}
           {/* ======================================================================= */}
           {!selectedSources.includes('all') && selectedSources.length === 1 && (
-            <section className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+            <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-sm">
               <div className="p-6">
                 {(() => {
                   const sourceId = selectedSources[0];
                   const source = getSourceById(sourceId);
                   const stats = getSourceStats(sourceId);
-                  const balance = sourceBalances[sourceId] || 0;
-                  const balanceStatus = getBalanceStatus(balance, source.alertThreshold);
-                  const typeInfo = getSourceTypeInfo(source.type);
+                  const balance = source?.currentBalance || 0;
+                  const balanceStatus = getBalanceStatus(balance, source?.alertThreshold || 0);
+                  const typeInfo = getSourceTypeInfo(source?.type || '');
                   const Icon = typeInfo.icon;
                   
                   return (
@@ -1901,75 +1912,75 @@ const resetForm = () => {
                         <div className="flex items-center gap-4">
                           <div 
                             className="w-16 h-16 rounded-xl flex items-center justify-center text-white"
-                            style={{ backgroundColor: source.color }}
+                            style={{ backgroundColor: source?.color || '#3B82F6' }}
                           >
                             <Icon size={28} />
                           </div>
                           <div>
-                            <h2 className="text-2xl font-bold text-gray-900">{source.name}</h2>
-                            <p className="text-gray-600">{typeInfo.name}</p>
-                            {source.description && (
-                              <p className="text-sm text-gray-500 mt-1">{source.description}</p>
+                            <h2 className="text-2xl font-bold text-gray-900 dark:text-slate-100">{source?.name || 'Unknown Source'}</h2>
+                            <p className="text-gray-600 dark:text-slate-400">{typeInfo.name}</p>
+                            {source?.description && (
+                              <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">{source.description}</p>
                             )}
                           </div>
                         </div>
                         
                         <div className="text-right">
-                          <p className="text-sm font-medium text-gray-600">Current Balance</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-slate-400">Current Balance</p>
                           <p className={`text-3xl font-bold ${balanceStatus.color}`}>
                             {formatIndianCurrency(balance)}
                           </p>
-                          <p className="text-sm text-gray-500">
-                            Started with {formatIndianCurrency(source.initialBalance)}
+                          <p className="text-sm text-gray-500 dark:text-slate-400">
+                            Started with {formatIndianCurrency(source?.initialBalance || 0)}
                           </p>
                         </div>
                       </div>
 
                       {/* Source Statistics Grid */}
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm font-medium text-blue-800">Monthly Spent</p>
-                              <p className="text-xl font-bold text-blue-600">
+                              <p className="text-sm font-medium text-blue-800 dark:text-blue-400">Monthly Spent</p>
+                              <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
                                 {formatIndianCurrency(stats.monthlySpent)}
                               </p>
                             </div>
-                            <TrendingDown className="text-blue-500" size={24} />
+                            <TrendingDown className="text-blue-500 dark:text-blue-400" size={24} />
                           </div>
                         </div>
                         
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm font-medium text-green-800">Total Transactions</p>
-                              <p className="text-xl font-bold text-green-600">{stats.totalTransactions}</p>
+                              <p className="text-sm font-medium text-green-800 dark:text-green-400">Total Transactions</p>
+                              <p className="text-xl font-bold text-green-600 dark:text-green-400">{stats.totalTransactions}</p>
                             </div>
-                            <BarChart3 className="text-green-500" size={24} />
+                            <BarChart3 className="text-green-500 dark:text-green-400" size={24} />
                           </div>
                         </div>
                         
-                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                        <div className="bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm font-medium text-purple-800">Alert Threshold</p>
-                              <p className="text-xl font-bold text-purple-600">
-                                {formatIndianCurrency(source.alertThreshold)}
+                              <p className="text-sm font-medium text-purple-800 dark:text-purple-400">Alert Threshold</p>
+                              <p className="text-xl font-bold text-purple-600 dark:text-purple-400">
+                                {formatIndianCurrency(source?.alertThreshold || 0)}
                               </p>
                             </div>
-                            <Bell className="text-purple-500" size={24} />
+                            <Bell className="text-purple-500 dark:text-purple-400" size={24} />
                           </div>
                         </div>
                         
-                        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                        <div className="bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm font-medium text-orange-800">Avg. Transaction</p>
-                              <p className="text-xl font-bold text-orange-600">
+                              <p className="text-sm font-medium text-orange-800 dark:text-orange-400">Avg. Transaction</p>
+                              <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
                                 {formatIndianCurrency(stats.totalTransactions > 0 ? stats.totalSpent / stats.totalTransactions : 0)}
                               </p>
                             </div>
-                            <PieChart className="text-orange-500" size={24} />
+                            <PieChart className="text-orange-500 dark:text-orange-400" size={24} />
                           </div>
                         </div>
                       </div>
@@ -1977,21 +1988,21 @@ const resetForm = () => {
                       {/* Category Breakdown */}
                       {Object.keys(stats.categoryBreakdown).length > 0 && (
                         <div className="mb-6">
-                          <h3 className="text-lg font-semibold text-gray-800 mb-4">Spending by Category</h3>
+                          <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-200 mb-4">Spending by Category</h3>
                           <div className="space-y-3">
                             {Object.entries(stats.categoryBreakdown)
                               .sort(([,a], [,b]) => b - a)
                               .map(([category, amount]) => {
                                 const percentage = ((amount / stats.totalSpent) * 100).toFixed(1);
                                 return (
-                                  <div key={category} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                  <div key={category} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-700 rounded-lg">
                                     <div className="flex items-center gap-3">
                                       <div className="text-lg">{getCategoryIcon(category)}</div>
-                                      <span className="font-medium text-gray-700">{category}</span>
+                                      <span className="font-medium text-gray-700 dark:text-slate-300">{category}</span>
                                     </div>
                                     <div className="text-right">
-                                      <p className="font-semibold text-gray-900">{formatIndianCurrency(amount)}</p>
-                                      <p className="text-sm text-gray-500">{percentage}%</p>
+                                      <p className="font-semibold text-gray-900 dark:text-slate-100">{formatIndianCurrency(amount)}</p>
+                                      <p className="text-sm text-gray-500 dark:text-slate-400">{percentage}%</p>
                                     </div>
                                   </div>
                                 );
@@ -2003,15 +2014,15 @@ const resetForm = () => {
                       {/* Recent Transactions for this Source */}
                       {stats.recentTransactions.length > 0 && (
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-800 mb-4">Recent Transactions</h3>
+                          <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-200 mb-4">Recent Transactions</h3>
                           <div className="space-y-2">
                             {stats.recentTransactions.map(transaction => (
-                              <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                              <div key={transaction.id} className="flex items-center justify-between p-3 border border-gray-200 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700">
                                 <div>
-                                  <p className="font-medium text-gray-800">{transaction.vendor}</p>
-                                  <p className="text-sm text-gray-600">{transaction.date} • {transaction.category}</p>
+                                  <p className="font-medium text-gray-800 dark:text-slate-200">{transaction.vendor}</p>
+                                  <p className="text-sm text-gray-600 dark:text-slate-400">{transaction.transactionDate} • {transaction.category}</p>
                                 </div>
-                                <p className="font-semibold text-gray-900">{formatIndianCurrency(transaction.amount)}</p>
+                                <p className="font-semibold text-gray-900 dark:text-slate-100">{formatIndianCurrency(transaction.amount)}</p>
                               </div>
                             ))}
                           </div>
@@ -2024,71 +2035,72 @@ const resetForm = () => {
             </section>
           )}
 
- 
-{Object.keys(expensesByCategory).length > 0 && (
-  <section className="bg-white border border-gray-200 rounded-2xl shadow-sm">
-    <div className="p-6">
-      <button
-        onClick={() => setShowCategories(!showCategories)}
-        className="w-full flex items-center justify-between text-left text-gray-900 focus:outline-none"
-      >
-        <h2 className="text-xl font-bold flex items-center gap-2">
-          <Tag size={20} />
-          Expense Categories {!selectedSources.includes('all') && `(${selectedSources.length} sources)`}
-        </h2>
-        <ChevronDown
-          size={24}
-          className={`text-gray-500 transition-transform duration-300 ease-in-out ${
-            showCategories ? 'transform rotate-180' : ''
-          }`}
-        />
-      </button>
-      
-      {showCategories && (
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <div className="space-y-3">
-            {Object.entries(expensesByCategory)
-              .sort(([,a], [,b]) => b - a)
-              .map(([category, amount]) => {
-                const percentage = ((amount / totalExpenses) * 100).toFixed(1);
-                const transactionCount = filteredExpenses.filter(e => e.category === category).length;
-                return (
-                  <div key={category} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="text-xl">{getCategoryIcon(category)}</div>
-                      <div>
-                        <h3 className="font-semibold text-gray-800">{category}</h3>
-                        <p className="text-sm text-gray-600">{transactionCount} transaction{transactionCount !== 1 ? 's' : ''}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-gray-900">
-                        {formatIndianCurrency(amount)}
-                      </p>
-                      <p className="text-sm text-gray-600">{percentage}% of total</p>
+          {/* ======================================================================= */}
+          {/* EXPENSE CATEGORIES OVERVIEW                                            */}
+          {/* ======================================================================= */}
+          {Object.keys(expensesByCategory).length > 0 && (
+            <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-sm">
+              <div className="p-6">
+                <button
+                  onClick={() => setShowCategories(!showCategories)}
+                  className="w-full flex items-center justify-between text-left text-gray-900 dark:text-slate-100 focus:outline-none"
+                >
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <Tag size={20} />
+                    Expense Categories {!selectedSources.includes('all') && `(${selectedSources.length} sources)`}
+                  </h2>
+                  <ChevronDown
+                    size={24}
+                    className={`text-gray-500 dark:text-slate-400 transition-transform duration-300 ease-in-out ${
+                      showCategories ? 'transform rotate-180' : ''
+                    }`}
+                  />
+                </button>
+                
+                {showCategories && (
+                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-600">
+                    <div className="space-y-3">
+                      {Object.entries(expensesByCategory)
+                        .sort(([,a], [,b]) => b - a)
+                        .map(([category, amount]) => {
+                          const percentage = ((amount / totalExpenses) * 100).toFixed(1);
+                          const transactionCount = filteredExpenses.filter(e => e.category === category).length;
+                          return (
+                            <div key={category} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-700 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-600 transition-colors">
+                              <div className="flex items-center gap-3">
+                                <div className="text-xl">{getCategoryIcon(category)}</div>
+                                <div>
+                                  <h3 className="font-semibold text-gray-800 dark:text-slate-200">{category}</h3>
+                                  <p className="text-sm text-gray-600 dark:text-slate-400">{transactionCount} transaction{transactionCount !== 1 ? 's' : ''}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-lg font-bold text-gray-900 dark:text-slate-100">
+                                  {formatIndianCurrency(amount)}
+                                </p>
+                                <p className="text-sm text-gray-600 dark:text-slate-400">{percentage}% of total</p>
+                              </div>
+                            </div>
+                          );
+                        })}
                     </div>
                   </div>
-                );
-              })}
-          </div>
-        </div>
-      )}
-    </div>
-  </section>
-)}
-
+                )}
+              </div>
+            </section>
+          )}
 
           {/* ======================================================================= */}
           {/* ENHANCED EXPENSES LIST (with Source Information)                      */}
           {/* ======================================================================= */}
-          <section className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+          <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-sm">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100 flex items-center gap-2">
                   <Eye size={20} />
                   Recent Expenses
                   {!selectedSources.includes('all') && (
-                    <span className="text-sm font-normal text-gray-600">
+                    <span className="text-sm font-normal text-gray-600 dark:text-slate-400">
                       ({filteredExpenses.length} from selected sources)
                     </span>
                   )}
@@ -2097,7 +2109,7 @@ const resetForm = () => {
                 {/* Quick Filter for Source View */}
                 {selectedSources.includes('all') && sources.length > 1 && (
                   <div className="flex items-center gap-2">
-                    <Search size={16} className="text-gray-400" />
+                    <Search size={16} className="text-gray-400 dark:text-slate-500" />
                     <select
                       onChange={(e) => {
                         if (e.target.value === 'all') {
@@ -2106,7 +2118,7 @@ const resetForm = () => {
                           setSelectedSources([e.target.value]);
                         }
                       }}
-                      className="text-sm border border-gray-300 rounded-lg px-3 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="text-sm border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 rounded-lg px-3 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="all">All Sources</option>
                       {sources.map(source => (
@@ -2118,15 +2130,15 @@ const resetForm = () => {
               </div>
 
               {filteredExpenses.length === 0 ? (
-                <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-lg">
-                  <AlertCircle size={48} className="text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 text-lg font-semibold">
+                <div className="text-center py-16 border-2 border-dashed border-gray-200 dark:border-slate-600 rounded-lg">
+                  <AlertCircle size={48} className="text-gray-400 dark:text-slate-500 mx-auto mb-4" />
+                  <p className="text-gray-600 dark:text-slate-400 text-lg font-semibold">
                     {selectedSources.includes('all') 
                       ? 'No expenses recorded yet' 
                       : 'No expenses from selected sources'
                     }
                   </p>
-                  <p className="text-gray-500 mt-1">
+                  <p className="text-gray-500 dark:text-slate-400 mt-1">
                     {selectedSources.includes('all') 
                       ? 'Upload a receipt or add an expense manually to get started.'
                       : 'Try selecting different sources or add new expenses.'
@@ -2141,12 +2153,12 @@ const resetForm = () => {
                     const Icon = typeInfo?.icon;
                     
                     return (
-                      <div key={expense.id} className="border border-gray-200 rounded-lg p-4 transition-shadow duration-200 hover:shadow-lg hover:border-blue-300">
+                      <div key={expense.id} className="border border-gray-200 dark:border-slate-600 rounded-lg p-4 transition-shadow duration-200 hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600">
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                           <div className="flex-1">
                             <div className="flex items-center flex-wrap gap-x-3 gap-y-2 mb-2">
-                              <h3 className="text-lg font-semibold text-gray-800">{expense.vendor}</h3>
-                              <span className="bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full text-xs font-medium">
+                              <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-200">{expense.vendor}</h3>
+                              <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 px-2.5 py-0.5 rounded-full text-xs font-medium">
                                 {expense.category}
                               </span>
                               
@@ -2163,13 +2175,13 @@ const resetForm = () => {
                                 </div>
                               )}
                             </div>
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600">
-                              <span className="flex items-center gap-1.5 font-mono font-medium text-green-700">
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 dark:text-slate-400">
+                              <span className="flex items-center gap-1.5 font-mono font-medium text-green-700 dark:text-green-400">
                                 {formatIndianCurrency(expense.amount)}
                               </span>
                               <span className="flex items-center gap-1.5">
                                 <Calendar size={14} />
-                                {expense.date}
+                                {expense.transactionDate}
                               </span>
                               {expense.description && (
                                 <span className="flex items-center gap-1.5">
@@ -2182,14 +2194,14 @@ const resetForm = () => {
                           <div className="flex-shrink-0 flex items-center gap-2">
                             <button
                               onClick={() => editExpense(expense)}
-                              className="p-2 text-blue-600 rounded-md hover:bg-blue-100 hover:text-blue-800 transition-colors"
+                              className="p-2 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
                               title="Edit expense"
                             >
                               <Edit2 size={18} />
                             </button>
                             <button
-                              onClick={() => deleteExpense(expense.id)}
-                              className="p-2 text-red-600 rounded-md hover:bg-red-100 hover:text-red-800 transition-colors"
+                              onClick={() => deleteExpenseHandler(expense.id)}
+                              className="p-2 text-red-600 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-800 dark:hover:text-red-300 transition-colors"
                               title="Delete expense"
                             >
                               <Trash2 size={18} />
@@ -2227,4 +2239,3 @@ const getCategoryIcon = (category) => {
 };
 
 export default ExpenseTracker;
-

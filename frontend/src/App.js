@@ -8,13 +8,16 @@ import Footer from './components/Footer';
 import AddExpense from './pages/AddExpense';
 import Dashboard from './pages/Dashboard';
 import Authentication from './pages/Authentication';
+import { DataProvider } from './context/DataContext'; // Import the new DataProvider
+
 import './App.css';
 
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <Router>
+        <DataProvider>
+          <Router>
           <div className="App">
             <Navigation />
             <main className="main-content">
@@ -44,6 +47,8 @@ function App() {
             <Footer />
           </div>
         </Router>
+        </DataProvider>
+        
       </AuthProvider>
     </ThemeProvider>
   );
